@@ -37,15 +37,9 @@ export const POST = createRoute(requireAuth, async (c) => {
     // Create Vercel project if needed
     let vercelProjectId = project.vercelProjectId
     if (!vercelProjectId) {
-      const frameworkMap: Record<string, string> = {
-        nextjs: 'nextjs', vite: 'vite', remix: 'remix',
-        astro: 'astro', sveltekit: 'sveltekit', nuxt: 'nuxtjs',
-        'create-react-app': 'create-react-app',
-      }
       const vercelName = body.vercelProjectName?.trim() || `vibeship-${project.subdomain}`
       const vp = await vercel.createProject(vercelToken, {
         name: vercelName,
-        framework: project.framework ? frameworkMap[project.framework] || null : null,
         gitRepository: { type: 'github', repo: project.githubRepo },
       })
       vercelProjectId = vp.id
