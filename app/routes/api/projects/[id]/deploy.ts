@@ -1,0 +1,89 @@
+import { createRoute } from 'honox/factory'
+import { eq, and } from 'drizzle-orm'
+import { getDb } from '../../../../db'
+import { users, projects, deployments } from '../../../../db/schema'
+import { requireAuth } from '../../../../lib/auth-guard'
+import { generateId } from '../../../../lib/id'
+import { decrypt } from '../../../../lib/crypto'
+import * as vercel from '../../../../services/vercel'
+
+// POST /api/projects/:id/deploy - Create Vercel project + trigger deployment, return immediately
+export const POST = createRoute(requireAuth, async (c) => {
+  const session = c.get('session')
+  const projectId = c.req.param('id')
+  const db = getDb(c.env.DB)
+
+  const project = await db.select().from(projects)
+    .where(and(eq(projects.id, projectId), eq(projects.userId, session.userId!)))
+    .get()
+
+  if (!project) {
+    return c.json({ error: 'Project not found' }, 404)
+  }
+
+  if (!project.githubRepo) {
+    return c.json({ error: 'Push to GitHub first' }, 400)
+  }
+
+  const body = await c.req.json<{ vercelProjectName?: string }>().catch(() => ({}))
+
+  try {
+    const user = await db.select().from(users).where(eq(users.id, session.userId!)).get()
+    if (!user || !user.vercelToken) return c.json({ error: 'Vercel not connected. Please connect Vercel first.' }, 400)
+
+    const vercelToken = await decrypt(user.vercelToken, c.env.ENCRYPTION_KEY)
+    const [owner, repo] = project.githubRepo.split('/')
+
+    // Create Vercel project if needed
+    let vercelProjectId = project.vercelProjectId
+    if (!vercelProjectId) {
+      const frameworkMap: Record<string, string> = {
+        nextjs: 'nextjs', vite: 'vite', remix: 'remix',
+        astro: 'astro', sveltekit: 'sveltekit', nuxt: 'nuxtjs',
+        'create-react-app': 'create-react-app',
+      }
+      const vercelName = body.vercelProjectName?.trim() || `vibeship-${project.subdomain}`
+      const vp = await vercel.createProject(vercelToken, {
+        name: vercelName,
+        framework: project.framework ? frameworkMap[project.framework] || null : null,
+        gitRepository: { type: 'github', repo: project.githubRepo },
+      })
+      vercelProjectId = vp.id
+      await db.update(projects).set({
+        vercelProjectId,
+        deploymentUrl: `https://${vercelName}.vercel.app`,
+        updatedAt: new Date(),
+      }).where(eq(projects.id, projectId)).run()
+    }
+
+    // Trigger deployment — derive name from stored domain or fallback
+    const vercelDeployName = project.deploymentUrl
+      ? project.deploymentUrl.replace('https://', '').replace('.vercel.app', '')
+      : `vibeship-${project.subdomain}`
+    const deployment = await vercel.createDeployment(vercelToken, {
+      name: vercelDeployName,
+      gitSource: { type: 'github', org: owner, repo, ref: 'main' },
+    })
+
+    // Create deployment record
+    const deploymentId = generateId()
+    await db.insert(deployments).values({
+      id: deploymentId,
+      projectId,
+      vercelDeploymentId: deployment.id,
+      status: 'building',
+    }).run()
+
+    await db.update(projects).set({
+      status: 'deploying',
+      updatedAt: new Date(),
+    }).where(eq(projects.id, projectId)).run()
+
+    // Return immediately — frontend polls /status for updates
+    return c.json({ deploymentId, vercelDeploymentId: deployment.id, status: 'building' })
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown error'
+    console.error(`Deploy failed for project ${projectId}:`, message)
+    return c.json({ error: message }, 500)
+  }
+})

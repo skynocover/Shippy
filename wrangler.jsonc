@@ -8,5 +8,23 @@
   ],
   "assets": {
     "directory": "./dist"
-  }
+  },
+
+  // D1 Database
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "vibeship-db",
+      "database_id": "LOCAL_DB_ID",
+      "migrations_dir": "drizzle"
+    }
+  ],
+
+  // KV Namespace for sessions
+  "kv_namespaces": [
+    {
+      "binding": "SESSION",
+      "id": "LOCAL_SESSION_ID"
+    }
+  ]
 }
