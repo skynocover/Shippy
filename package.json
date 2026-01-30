@@ -1,0 +1,31 @@
+{
+  "name": "shippy",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build --mode client && vite build",
+    "preview": "wrangler dev",
+    "deploy": "pnpm build && wrangler deploy"
+  },
+  "private": true,
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "sharp",
+      "workerd"
+    ]
+  },
+  "dependencies": {
+    "hono": "^4.11.7",
+    "honox": "^0.1.53"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260130.0",
+    "@hono/vite-build": "^1.9.2",
+    "@hono/vite-dev-server": "^0.24.1",
+    "@tailwindcss/vite": "^4.1.18",
+    "tailwindcss": "^4.1.18",
+    "vite": "^7.3.1",
+    "wrangler": "^4.61.1"
+  }
+}
