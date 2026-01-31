@@ -8,6 +8,7 @@ export const users = sqliteTable('users', {
   avatarUrl: text('avatar_url'),
   githubToken: text('github_token').notNull(),
   vercelToken: text('vercel_token'),
+  cloudflareToken: text('cloudflare_token'),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
 })
@@ -22,6 +23,8 @@ export const projects = sqliteTable('projects', {
   vercelProjectId: text('vercel_project_id'),
   deploymentUrl: text('deployment_url'),
   status: text('status', { enum: ['created', 'uploading', 'deploying', 'live', 'failed'] }).notNull().default('created'),
+  customDomain: text('custom_domain'),
+  domainStatus: text('domain_status', { enum: ['pending', 'active', 'error'] }),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
 })

@@ -1,9 +1,10 @@
 import { createRoute } from 'honox/factory'
 import { eq, and, desc } from 'drizzle-orm'
 import { getDb } from '../../db'
-import { projects, deployments } from '../../db/schema'
+import { users, projects, deployments } from '../../db/schema'
 import { requireAuth } from '../../lib/auth-guard'
 import DeployStatus from '../../islands/deploy-status'
+import DomainSetup from '../../islands/domain-setup'
 
 export default createRoute(requireAuth, async (c) => {
   const session = c.get('session')
@@ -17,6 +18,9 @@ export default createRoute(requireAuth, async (c) => {
   if (!project) {
     return c.notFound()
   }
+
+  const user = await db.select().from(users).where(eq(users.id, session.userId!)).get()
+  const hasCloudflare = !!user?.cloudflareToken
 
   const deploymentHistory = await db.select().from(deployments)
     .where(eq(deployments.projectId, projectId))
@@ -55,7 +59,11 @@ export default createRoute(requireAuth, async (c) => {
           <div class="bg-gray-900 rounded-lg p-6 border border-gray-800">
             <div class="text-sm text-gray-400 mb-1">Domain</div>
             <div class="font-mono text-sm">
-              {project.deploymentUrl ? (
+              {project.customDomain ? (
+                <a href={`https://${project.customDomain}`} target="_blank" rel="noopener" class="text-orange-400 hover:underline">
+                  {project.customDomain}
+                </a>
+              ) : project.deploymentUrl ? (
                 <a href={project.deploymentUrl} target="_blank" rel="noopener" class="text-indigo-400 hover:underline">
                   {project.deploymentUrl.replace('https://', '')}
                 </a>
@@ -83,6 +91,13 @@ export default createRoute(requireAuth, async (c) => {
         </div>
 
         <DeployStatus projectId={project.id} initialStatus={project.status} initialUrl={project.deploymentUrl ?? undefined} />
+
+        <DomainSetup
+          projectId={project.id}
+          hasCloudflare={hasCloudflare}
+          currentDomain={project.customDomain ?? undefined}
+          domainStatus={project.domainStatus ?? undefined}
+        />
 
         {deploymentHistory.length > 0 && (
           <div>

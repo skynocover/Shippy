@@ -5,6 +5,7 @@ import { users } from '../../db/schema'
 import { requireAuth } from '../../lib/auth-guard'
 import FileUploader from '../../islands/file-uploader'
 import ProjectList from '../../islands/project-list'
+import CloudflareConnect from '../../islands/cloudflare-connect'
 
 export default createRoute(requireAuth, async (c) => {
   const session = c.get('session')
@@ -12,6 +13,7 @@ export default createRoute(requireAuth, async (c) => {
   const user = await db.select().from(users).where(eq(users.id, session.userId!)).get()
 
   const hasVercel = !!user?.vercelToken
+  const hasCloudflare = !!user?.cloudflareToken
 
   return c.render(
     <div class="min-h-screen">
@@ -35,6 +37,7 @@ export default createRoute(requireAuth, async (c) => {
                 Vercel connected
               </span>
             )}
+            <CloudflareConnect isConnected={hasCloudflare} />
             <span class="text-sm text-gray-400">{user?.username}</span>
             {user?.avatarUrl && (
               <img src={user.avatarUrl} alt="" class="w-8 h-8 rounded-full" />
