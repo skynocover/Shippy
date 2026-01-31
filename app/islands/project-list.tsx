@@ -52,20 +52,22 @@ export default function ProjectList() {
       {projects.map(project => {
         const sc = statusConfig[project.status] || statusConfig.created
         return (
-          <div
+          <a
             key={project.id}
-            class="bg-gray-900 rounded-lg p-5 border border-gray-800 hover:border-gray-700 transition-colors"
+            href={`/dashboard/${project.id}`}
+            class="block bg-gray-900 rounded-lg p-5 border border-gray-800 hover:border-gray-700 transition-colors"
           >
             <div class="flex items-start justify-between mb-3">
-              <a href={`/dashboard/${project.id}`} class="font-semibold text-gray-100 truncate hover:text-indigo-400">
+              <span class="font-semibold text-gray-100 truncate">
                 {project.name}
-              </a>
+              </span>
               <div class="flex items-center gap-2">
                 <span class={`px-2 py-0.5 rounded text-xs font-medium ${sc.color} ${sc.bg}`}>
                   {project.status}
                 </span>
                 <button
                   onClick={async (e: Event) => {
+                    e.preventDefault()
                     e.stopPropagation()
                     if (!confirm(`Delete "${project.name}"?`)) return
                     const res = await fetch(`/api/projects/${project.id}`, { method: 'DELETE' })
@@ -77,7 +79,7 @@ export default function ProjectList() {
                 </button>
               </div>
             </div>
-            <a href={`/dashboard/${project.id}`} class="block space-y-1.5 text-sm">
+            <div class="space-y-1.5 text-sm">
               <div class="text-gray-500 font-mono">{project.subdomain}.vibeship.dev</div>
               {project.framework && (
                 <div class="text-gray-400">{project.framework}</div>
@@ -85,8 +87,8 @@ export default function ProjectList() {
               {project.deploymentUrl && (
                 <div class="text-indigo-400 truncate">{project.deploymentUrl}</div>
               )}
-            </a>
-          </div>
+            </div>
+          </a>
         )
       })}
     </div>
