@@ -8,11 +8,14 @@ import * as github from '../../../../services/github';
 
 export default createRoute(async (c) => {
   const code = c.req.query('code');
-  const state = c.req.query('state');
-  const mode = c.req.query('mode');
+  const stateParam = c.req.query('state') ?? '';
   const session = c.get('session');
 
-  if (!code || state !== session.id) {
+  // Decode popup mode from state
+  const isPopup = stateParam.endsWith(':popup');
+  const sessionId = isPopup ? stateParam.slice(0, -':popup'.length) : stateParam;
+
+  if (!code || sessionId !== session.id) {
     return c.redirect('/?error=auth_failed');
   }
 
@@ -85,7 +88,7 @@ export default createRoute(async (c) => {
   session.userId = userId;
   c.set('session', session);
 
-  if (mode === 'popup') {
+  if (isPopup) {
     return c.html(`<!DOCTYPE html>
 <html><body><script>
   window.opener.postMessage({ type: 'github-connected' }, '*');
