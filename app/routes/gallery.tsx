@@ -2,7 +2,6 @@ import { createRoute } from 'honox/factory';
 import { eq, and, desc } from 'drizzle-orm';
 import { getDb } from '../db';
 import { users, projects } from '../db/schema';
-import { fetchOgImage } from '../lib/og';
 import { timeAgo } from '../lib/time';
 import Navbar from '../components/navbar';
 
@@ -51,22 +50,6 @@ export default createRoute(async (c) => {
     .innerJoin(users, eq(projects.userId, users.id))
     .where(and(eq(projects.isPublic, true), eq(projects.status, 'live')))
     .orderBy(desc(projects.createdAt));
-
-  // Fetch & cache OG images for projects that don't have one yet
-  const uncached = galleryProjects.filter((p) => !p.ogImage && (p.deploymentUrl || p.customDomain));
-  if (uncached.length > 0) {
-    const results = await Promise.allSettled(
-      uncached.map(async (p) => {
-        const url = p.customDomain ? `https://${p.customDomain}` : p.deploymentUrl!;
-        const img = await fetchOgImage(url);
-        if (img) {
-          await db.update(projects).set({ ogImage: img }).where(eq(projects.id, p.id)).run();
-          p.ogImage = img;
-        }
-      }),
-    );
-    void results; // consumed via side-effects above
-  }
 
   return c.render(
     <div class="min-h-screen">

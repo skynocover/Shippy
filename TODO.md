@@ -801,7 +801,7 @@ DB 中 token 有加密儲存（正確），但 session KV 卻存了明文（有�
 
 #### 5-1. Gallery 頁面 OG image 在每次請求時 fetch
 `app/routes/gallery.tsx:69-81` 會在每次頁面載入時對沒有 cache 的專案發起外部請求抓取 OG image。
-- [ ] 考慮改為背景任務或只在部署完成時抓取一次
+- [x] 改為部署完成時（status.ts 偵測 READY）使用 waitUntil() 背景抓取一次
 
 ### 最後：格式化
 - [ ] 所有修改完成後，執行 `npx prettier --write "app/**/*.{ts,tsx}"` 確保格式一致

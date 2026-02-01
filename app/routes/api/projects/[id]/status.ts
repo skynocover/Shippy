@@ -8,12 +8,13 @@ import {
   getUserWithTokens,
   decryptUserToken,
 } from '../../../../lib/project-helpers';
+import { fetchOgImage } from '../../../../lib/og';
 import * as vercel from '../../../../services/vercel';
 
 // GET /api/projects/:id/status - Get live deployment status from Vercel
 export const GET = createRoute(requireAuth, async (c) => {
   const session = c.get('session');
-  const projectId = c.req.param('id');
+  const projectId = c.req.param('id') || '';
   const db = getDb(c.env.DB);
 
   const project = await getProjectByIdAndUser(db, projectId, session.userId!);
@@ -72,6 +73,24 @@ export const GET = createRoute(requireAuth, async (c) => {
               })
               .where(eq(projects.id, projectId))
               .run();
+
+            // Background-fetch OG image and cache in DB
+            const ogUrl = project.customDomain
+              ? `https://${project.customDomain}`
+              : project.deploymentUrl;
+            if (ogUrl && !project.ogImage) {
+              c.executionCtx.waitUntil(
+                fetchOgImage(ogUrl).then(async (img) => {
+                  if (img) {
+                    await db
+                      .update(projects)
+                      .set({ ogImage: img })
+                      .where(eq(projects.id, projectId))
+                      .run();
+                  }
+                }),
+              );
+            }
           } else if (vd.readyState === 'ERROR' || vd.readyState === 'CANCELED') {
             await db
               .update(projects)
