@@ -1,4 +1,4 @@
-import { cors } from 'hono/cors'
+import { cors } from 'hono/cors';
 
 export default [
   cors({
@@ -6,4 +6,4 @@ export default [
     allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowHeaders: ['Content-Type', 'Authorization'],
   }),
-]
+];

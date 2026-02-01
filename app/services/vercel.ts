@@ -1,63 +1,61 @@
-const API = 'https://api.vercel.com'
+const API = 'https://api.vercel.com';
 
-function headers(token: string) {
-  return {
-    Authorization: `Bearer ${token}`,
-    'Content-Type': 'application/json',
-  }
-}
+const headers = (token: string) => ({
+  Authorization: `Bearer ${token}`,
+  'Content-Type': 'application/json',
+});
 
 interface CreateProjectParams {
-  name: string
-  framework?: string | null
+  name: string;
+  framework?: string | null;
   gitRepository?: {
-    type: 'github'
-    repo: string // "owner/repo"
-  }
-  buildCommand?: string
-  outputDirectory?: string
+    type: 'github';
+    repo: string; // "owner/repo"
+  };
+  buildCommand?: string;
+  outputDirectory?: string;
 }
 
-export async function createProject(token: string, params: CreateProjectParams) {
+export const createProject = async (token: string, params: CreateProjectParams) => {
   const body: Record<string, unknown> = {
     name: params.name,
-  }
+  };
   if (params.framework) {
-    body.framework = params.framework
+    body.framework = params.framework;
   }
   if (params.gitRepository) {
-    body.gitRepository = params.gitRepository
+    body.gitRepository = params.gitRepository;
   }
   if (params.buildCommand) {
-    body.buildCommand = params.buildCommand
+    body.buildCommand = params.buildCommand;
   }
   if (params.outputDirectory) {
-    body.outputDirectory = params.outputDirectory
+    body.outputDirectory = params.outputDirectory;
   }
 
   const res = await fetch(`${API}/v10/projects`, {
     method: 'POST',
     headers: headers(token),
     body: JSON.stringify(body),
-  })
+  });
   if (!res.ok) {
-    const text = await res.text()
-    throw new Error(`Vercel createProject failed: ${res.status} ${text}`)
+    const text = await res.text();
+    throw new Error(`Vercel createProject failed: ${res.status} ${text}`);
   }
-  return res.json() as Promise<{ id: string; name: string }>
-}
+  return res.json() as Promise<{ id: string; name: string }>;
+};
 
 interface CreateDeploymentParams {
-  name: string
+  name: string;
   gitSource: {
-    type: 'github'
-    org: string
-    repo: string
-    ref: string
-  }
+    type: 'github';
+    org: string;
+    repo: string;
+    ref: string;
+  };
 }
 
-export async function createDeployment(token: string, params: CreateDeploymentParams) {
+export const createDeployment = async (token: string, params: CreateDeploymentParams) => {
   const res = await fetch(`${API}/v13/deployments`, {
     method: 'POST',
     headers: headers(token),
@@ -65,31 +63,36 @@ export async function createDeployment(token: string, params: CreateDeploymentPa
       name: params.name,
       gitSource: params.gitSource,
     }),
-  })
+  });
   if (!res.ok) {
-    const text = await res.text()
-    throw new Error(`Vercel createDeployment failed: ${res.status} ${text}`)
+    const text = await res.text();
+    throw new Error(`Vercel createDeployment failed: ${res.status} ${text}`);
   }
-  return res.json() as Promise<{ id: string; url: string; readyState: string }>
-}
+  return res.json() as Promise<{ id: string; url: string; readyState: string }>;
+};
 
-export async function getDeployment(token: string, deploymentId: string) {
+export const getDeployment = async (token: string, deploymentId: string) => {
   const res = await fetch(`${API}/v13/deployments/${deploymentId}`, {
     headers: headers(token),
-  })
-  if (!res.ok) throw new Error(`Vercel getDeployment failed: ${res.status}`)
-  return res.json() as Promise<{ id: string; url: string; readyState: string; alias?: string[] }>
-}
+  });
+  if (!res.ok) throw new Error(`Vercel getDeployment failed: ${res.status}`);
+  return res.json() as Promise<{
+    id: string;
+    url: string;
+    readyState: string;
+    alias?: string[];
+  }>;
+};
 
-export async function addDomain(token: string, projectId: string, domain: string) {
+export const addDomain = async (token: string, projectId: string, domain: string) => {
   const res = await fetch(`${API}/v10/projects/${projectId}/domains`, {
     method: 'POST',
     headers: headers(token),
     body: JSON.stringify({ name: domain }),
-  })
+  });
   if (!res.ok) {
-    const text = await res.text()
-    throw new Error(`Vercel addDomain failed: ${res.status} ${text}`)
+    const text = await res.text();
+    throw new Error(`Vercel addDomain failed: ${res.status} ${text}`);
   }
-  return res.json()
-}
+  return res.json();
+};

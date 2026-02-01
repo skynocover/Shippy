@@ -15,9 +15,9 @@ export const IGNORE_PATTERNS = [
   'Thumbs.db',
   '.idea',
   '.vscode',
-]
+];
 
 export function shouldIgnore(path: string): boolean {
-  const parts = path.split('/')
-  return parts.some(part => IGNORE_PATTERNS.includes(part))
+  const parts = path.split('/');
+  return parts.some((part) => IGNORE_PATTERNS.includes(part));
 }

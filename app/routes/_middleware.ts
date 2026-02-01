@@ -1,3 +1,3 @@
-import { sessionMiddleware } from '../lib/session'
+import { sessionMiddleware } from '../lib/session';
 
-export default [sessionMiddleware]
+export default [sessionMiddleware];

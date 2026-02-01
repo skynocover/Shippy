@@ -1,31 +1,35 @@
-import { createRoute } from 'honox/factory'
-import { eq, and, desc } from 'drizzle-orm'
-import { getDb } from '../../db'
-import { users, projects, deployments } from '../../db/schema'
-import { requireAuth } from '../../lib/auth-guard'
-import Navbar from '../../components/navbar'
-import ProjectDetail from '../../islands/project-detail'
+import { createRoute } from 'honox/factory';
+import { eq, and, desc } from 'drizzle-orm';
+import { getDb } from '../../db';
+import { users, projects, deployments } from '../../db/schema';
+import { requireAuth } from '../../lib/auth-guard';
+import Navbar from '../../components/navbar';
+import ProjectDetail from '../../islands/project-detail';
 
 export default createRoute(requireAuth, async (c) => {
-  const session = c.get('session')
-  const projectId = c.req.param('projectId')
-  const db = getDb(c.env.DB)
+  const session = c.get('session');
+  const projectId = c.req.param('projectId');
+  const db = getDb(c.env.DB);
 
-  const project = await db.select().from(projects)
+  const project = await db
+    .select()
+    .from(projects)
     .where(and(eq(projects.id, projectId), eq(projects.userId, session.userId!)))
-    .get()
+    .get();
 
   if (!project) {
-    return c.notFound()
+    return c.notFound();
   }
 
-  const user = await db.select().from(users).where(eq(users.id, session.userId!)).get()
-  const hasVercel = !!user?.vercelToken
-  const hasCloudflare = !!user?.cloudflareToken
+  const user = await db.select().from(users).where(eq(users.id, session.userId!)).get();
+  const hasVercel = !!user?.vercelToken;
+  const hasCloudflare = !!user?.cloudflareToken;
 
-  const deploymentHistory = await db.select().from(deployments)
+  const deploymentHistory = await db
+    .select()
+    .from(deployments)
     .where(eq(deployments.projectId, projectId))
-    .orderBy(desc(deployments.createdAt))
+    .orderBy(desc(deployments.createdAt));
 
   const serializedProject = {
     id: project.id,
@@ -38,16 +42,19 @@ export default createRoute(requireAuth, async (c) => {
     domainStatus: project.domainStatus,
     githubRepo: project.githubRepo,
     platform: 'vercel' as const,
-    createdAt: project.createdAt instanceof Date ? project.createdAt.toISOString() : String(project.createdAt),
-  }
+    createdAt:
+      project.createdAt instanceof Date
+        ? project.createdAt.toISOString()
+        : String(project.createdAt),
+  };
 
-  const serializedDeployments = deploymentHistory.map(d => ({
+  const serializedDeployments = deploymentHistory.map((d) => ({
     id: d.id,
     status: d.status,
     url: d.url,
     errorMessage: d.errorMessage,
     createdAt: d.createdAt instanceof Date ? d.createdAt.toISOString() : String(d.createdAt),
-  }))
+  }));
 
   return c.render(
     <div class="min-h-screen">
@@ -67,6 +74,6 @@ export default createRoute(requireAuth, async (c) => {
         />
       </main>
     </div>,
-    { title: `${project.name} - VibeShip` }
-  )
-})
+    { title: `${project.name} - VibeShip` },
+  );
+});

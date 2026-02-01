@@ -1,18 +1,18 @@
-import { createRoute } from 'honox/factory'
-import { eq } from 'drizzle-orm'
-import { getDb } from '../../db'
-import { users } from '../../db/schema'
-import { requireAuth } from '../../lib/auth-guard'
-import Navbar from '../../components/navbar'
-import ProjectList from '../../islands/project-list'
+import { createRoute } from 'honox/factory';
+import { eq } from 'drizzle-orm';
+import { getDb } from '../../db';
+import { users } from '../../db/schema';
+import { requireAuth } from '../../lib/auth-guard';
+import Navbar from '../../components/navbar';
+import ProjectList from '../../islands/project-list';
 
 export default createRoute(requireAuth, async (c) => {
-  const session = c.get('session')
-  const db = getDb(c.env.DB)
-  const user = await db.select().from(users).where(eq(users.id, session.userId!)).get()
+  const session = c.get('session');
+  const db = getDb(c.env.DB);
+  const user = await db.select().from(users).where(eq(users.id, session.userId!)).get();
 
-  const hasVercel = !!user?.vercelToken
-  const hasCloudflare = !!user?.cloudflareToken
+  const hasVercel = !!user?.vercelToken;
+  const hasCloudflare = !!user?.cloudflareToken;
 
   return c.render(
     <div class="min-h-screen">
@@ -33,6 +33,6 @@ export default createRoute(requireAuth, async (c) => {
         <ProjectList />
       </main>
     </div>,
-    { title: 'Dashboard - VibeShip' }
-  )
-})
+    { title: 'Dashboard - VibeShip' },
+  );
+});

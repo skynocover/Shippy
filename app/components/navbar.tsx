@@ -1,14 +1,20 @@
-import CloudflareConnect from '../islands/cloudflare-connect'
+import CloudflareConnect from '../islands/cloudflare-connect';
 
 interface NavbarProps {
-  username?: string
-  avatarUrl?: string
-  hasVercel?: boolean
-  hasCloudflare?: boolean
-  isLoggedIn?: boolean
+  username?: string;
+  avatarUrl?: string;
+  hasVercel?: boolean;
+  hasCloudflare?: boolean;
+  isLoggedIn?: boolean;
 }
 
-export default function Navbar({ username, avatarUrl, hasVercel, hasCloudflare, isLoggedIn }: NavbarProps) {
+export default function Navbar({
+  username,
+  avatarUrl,
+  hasVercel,
+  hasCloudflare,
+  isLoggedIn,
+}: NavbarProps) {
   return (
     <nav class="sticky top-0 z-50 glass-nav px-6 py-4">
       <div class="max-w-6xl mx-auto flex items-center justify-between">
@@ -43,7 +49,10 @@ export default function Navbar({ username, avatarUrl, hasVercel, hasCloudflare, 
 
               <CloudflareConnect isConnected={!!hasCloudflare} />
 
-              <div class="flex items-center gap-2.5 px-3 py-2 rounded-xl" style="background:rgba(255,255,255,0.05)">
+              <div
+                class="flex items-center gap-2.5 px-3 py-2 rounded-xl"
+                style="background:rgba(255,255,255,0.05)"
+              >
                 {avatarUrl ? (
                   <img src={avatarUrl} alt="" class="w-7 h-7 rounded-full" />
                 ) : (
@@ -69,5 +78,5 @@ export default function Navbar({ username, avatarUrl, hasVercel, hasCloudflare, 
         </div>
       </div>
     </nav>
-  )
+  );
 }

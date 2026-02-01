@@ -1,4 +1,4 @@
-import { useState, useEffect } from "hono/jsx";
+import { useState, useEffect } from 'hono/jsx';
 
 interface Project {
   id: string;
@@ -12,48 +12,45 @@ interface Project {
   createdAt: string;
 }
 
-const statusConfig: Record<
-  string,
-  { label: string; color: string; dot: string; glow: string }
-> = {
+const statusConfig: Record<string, { label: string; color: string; dot: string; glow: string }> = {
   created: {
-    label: "已建立",
-    color: "rgba(156,163,175,1)",
-    dot: "#9ca3af",
-    glow: "none",
+    label: '已建立',
+    color: 'rgba(156,163,175,1)',
+    dot: '#9ca3af',
+    glow: 'none',
   },
   uploading: {
-    label: "上傳中",
-    color: "#facc15",
-    dot: "#facc15",
-    glow: "0 0 8px rgba(250,204,21,0.6)",
+    label: '上傳中',
+    color: '#facc15',
+    dot: '#facc15',
+    glow: '0 0 8px rgba(250,204,21,0.6)',
   },
   deploying: {
-    label: "部署中",
-    color: "#60a5fa",
-    dot: "#60a5fa",
-    glow: "0 0 8px rgba(96,165,250,0.6)",
+    label: '部署中',
+    color: '#60a5fa',
+    dot: '#60a5fa',
+    glow: '0 0 8px rgba(96,165,250,0.6)',
   },
   live: {
-    label: "已上線",
-    color: "#34d399",
-    dot: "#34d399",
-    glow: "0 0 8px rgba(52,211,153,0.6)",
+    label: '已上線',
+    color: '#34d399',
+    dot: '#34d399',
+    glow: '0 0 8px rgba(52,211,153,0.6)',
   },
   failed: {
-    label: "部署失敗",
-    color: "#ef4444",
-    dot: "#ef4444",
-    glow: "0 0 8px rgba(239,68,68,0.6)",
+    label: '部署失敗',
+    color: '#ef4444',
+    dot: '#ef4444',
+    glow: '0 0 8px rgba(239,68,68,0.6)',
   },
 };
 
-function timeAgo(dateStr: string): string {
+const timeAgo = (dateStr: string): string => {
   const date = new Date(dateStr);
   const now = Date.now();
   const diff = now - date.getTime();
   const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "剛剛";
+  if (mins < 1) return '剛剛';
   if (mins < 60) return `${mins} 分鐘前`;
   const hours = Math.floor(mins / 60);
   if (hours < 24) return `${hours} 小時前`;
@@ -61,16 +58,16 @@ function timeAgo(dateStr: string): string {
   if (days < 7) return `${days} 天前`;
   const weeks = Math.floor(days / 7);
   return `${weeks} 週前`;
-}
+};
 
-export default function ProjectList() {
+const ProjectList = () => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/projects")
-      .then((res) => res.json())
-      .then((data: { projects: Project[] }) => {
+    fetch('/api/projects')
+      .then((res) => res.json() as Promise<{ projects: Project[] }>)
+      .then((data) => {
         setProjects(data.projects);
         setLoading(false);
       })
@@ -113,7 +110,7 @@ export default function ProjectList() {
         const sc = statusConfig[project.status] || statusConfig.created;
         const displayUrl =
           project.customDomain ||
-          project.deploymentUrl?.replace("https://", "") ||
+          project.deploymentUrl?.replace('https://', '') ||
           `${project.subdomain}.vibeship.dev`;
 
         return (
@@ -134,9 +131,9 @@ export default function ProjectList() {
             {/* URL */}
             <p
               class="font-mono text-sm mb-4 truncate"
-              style={`color:${project.status === "live" ? "#34d399" : project.status === "failed" ? "#ef4444" : "rgba(255,255,255,0.5)"}`}
+              style={`color:${project.status === 'live' ? '#34d399' : project.status === 'failed' ? '#ef4444' : 'rgba(255,255,255,0.5)'}`}
             >
-              {project.status === "failed" ? "部署失敗" : displayUrl}
+              {project.status === 'failed' ? '部署失敗' : displayUrl}
             </p>
 
             {/* Footer */}
@@ -145,20 +142,18 @@ export default function ProjectList() {
               style="border-top:1px solid rgba(255,255,255,0.06)"
             >
               <div class="flex items-center gap-1.5">
-                <span class="text-xs">
-                  {project.platform === "cloudflare" ? "☁️" : "▲"}
-                </span>
+                <span class="text-xs">{project.platform === 'cloudflare' ? '☁️' : '▲'}</span>
                 <span class="text-sm" style="color:rgba(255,255,255,0.5)">
                   {timeAgo(project.createdAt)}
                 </span>
               </div>
               <div class="flex gap-2">
-                {project.status === "live" && project.deploymentUrl && (
+                {project.status === 'live' && project.deploymentUrl && (
                   <button
                     onClick={(e: Event) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      window.open(project.deploymentUrl!, "_blank");
+                      window.open(project.deploymentUrl!, '_blank');
                     }}
                     class="px-3 py-1.5 rounded-lg text-sm cursor-pointer border-none text-white transition-colors"
                     style="background:rgba(255,255,255,0.1)"
@@ -166,7 +161,7 @@ export default function ProjectList() {
                     開啟
                   </button>
                 )}
-                {project.status === "failed" && (
+                {project.status === 'failed' && (
                   <button
                     onClick={(e: Event) => {
                       e.preventDefault();
@@ -186,4 +181,6 @@ export default function ProjectList() {
       })}
     </div>
   );
-}
+};
+
+export default ProjectList;
