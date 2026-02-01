@@ -727,5 +727,5 @@ export const domainConfigs = sqliteTable('domain_configs', {
 - i18n
 - 列表可以點擊card進入 而不是只能點擊名稱
 - 連結cloudflare 應該要可以在裡面連結 而不是只能在外面
-- 登出功能
+- ~~登出功能~~
 - gallery

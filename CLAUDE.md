@@ -43,6 +43,7 @@ Islands use `hono/jsx`, NOT React. Key differences:
 - Use `style="string"` not `style={{ object }}`
 - Import hooks from `'hono/jsx'` (useState, useEffect, etc.)
 - **NEVER import one island file from another island file.** This triggers a known hydration bug (HonoX Issue #154) where child islands evaluate multiple times and states reset. Instead, inline shared logic or extract it to `app/lib/`.
+- **`<honox-island>` 需要 `display: contents`**。HonoX 用 `<honox-island>` 自訂元素包裹 island 組件，瀏覽器預設為 `display: inline`，會導致 block 子元素的事件處理器（onClick 等）無法正常運作。`style.css` 中已加上 `honox-island { display: contents; }` 修復，**不要移除這條規則**。
 
 ## Environment Bindings
 

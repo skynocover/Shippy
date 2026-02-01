@@ -62,6 +62,16 @@ export default function Navbar({
                 )}
                 <span class="text-sm font-semibold">{username}</span>
               </div>
+
+              <form method="post" action="/api/auth/logout">
+                <button
+                  type="submit"
+                  class="px-3 py-1.5 rounded-lg text-sm font-medium cursor-pointer border-none transition-opacity hover:opacity-80"
+                  style="background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.7)"
+                >
+                  登出
+                </button>
+              </form>
             </>
           ) : (
             <a
