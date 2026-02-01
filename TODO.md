@@ -723,10 +723,13 @@ export const domainConfigs = sqliteTable('domain_configs', {
 - 注意github的Vercel App
 - 確認有哪些常見但是vercel不支援的 丟給AI決定
 - 買Domain
-- 流程優化
+- ~~流程優化~~ (Popup OAuth: 延遲登入到 Step 2，不需先登入就能開始上傳)
 - i18n
 - ~~登出功能~~
 - ~~gallery~~
+- 部署完成後 發布到twitter 的詞要修改
+- 如果不是github登入狀態 vercel在安裝完integration後 就自動跳去dashboard了
+
 
 ## Gallery功能
 

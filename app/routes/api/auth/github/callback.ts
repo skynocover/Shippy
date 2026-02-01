@@ -9,6 +9,7 @@ import * as github from '../../../../services/github';
 export default createRoute(async (c) => {
   const code = c.req.query('code');
   const state = c.req.query('state');
+  const mode = c.req.query('mode');
   const session = c.get('session');
 
   if (!code || state !== session.id) {
@@ -83,6 +84,14 @@ export default createRoute(async (c) => {
   // Set session
   session.userId = userId;
   c.set('session', session);
+
+  if (mode === 'popup') {
+    return c.html(`<!DOCTYPE html>
+<html><body><script>
+  window.opener.postMessage({ type: 'github-connected' }, '*');
+  window.close();
+</script></body></html>`);
+  }
 
   return c.redirect('/dashboard');
 });

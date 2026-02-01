@@ -58,9 +58,16 @@ export const POST = createRoute(requireAuth, async (c) => {
         .run();
     }
 
-    // Set environment variables if provided
+    // Set environment variables if provided (non-fatal — don't block deployment)
     if (body.envVars && body.envVars.length > 0) {
-      await vercel.setEnvVars(vercelToken, vercelProjectId!, body.envVars);
+      try {
+        await vercel.setEnvVars(vercelToken, vercelProjectId!, body.envVars);
+      } catch (envErr) {
+        console.warn(
+          `Failed to set env vars for project ${projectId}:`,
+          envErr instanceof Error ? envErr.message : envErr,
+        );
+      }
     }
 
     // Trigger deployment — derive name from stored domain or fallback

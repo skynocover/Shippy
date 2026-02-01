@@ -7,6 +7,7 @@ import { encrypt } from '../../../../lib/crypto';
 export default createRoute(async (c) => {
   const code = c.req.query('code');
   const state = c.req.query('state');
+  const mode = c.req.query('mode');
   const session = c.get('session');
 
   if (!code || state !== session.id) {
@@ -18,6 +19,10 @@ export default createRoute(async (c) => {
   }
 
   // Exchange code for access token
+  const callbackUri = new URL('/api/auth/vercel/callback', c.req.url);
+  if (mode === 'popup') {
+    callbackUri.searchParams.set('mode', 'popup');
+  }
   const tokenRes = await fetch('https://api.vercel.com/v2/oauth/access_token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -25,7 +30,7 @@ export default createRoute(async (c) => {
       client_id: c.env.VERCEL_CLIENT_ID,
       client_secret: c.env.VERCEL_CLIENT_SECRET,
       code,
-      redirect_uri: new URL('/api/auth/vercel/callback', c.req.url).toString(),
+      redirect_uri: callbackUri.toString(),
     }),
   });
 
@@ -49,6 +54,14 @@ export default createRoute(async (c) => {
     })
     .where(eq(users.id, session.userId))
     .run();
+
+  if (mode === 'popup') {
+    return c.html(`<!DOCTYPE html>
+<html><body><script>
+  window.opener.postMessage({ type: 'vercel-connected' }, '*');
+  window.close();
+</script></body></html>`);
+  }
 
   return c.redirect('/dashboard?vercel=connected');
 });

@@ -56,7 +56,7 @@ interface CreateDeploymentParams {
 }
 
 export const createDeployment = async (token: string, params: CreateDeploymentParams) => {
-  const res = await fetch(`${API}/v13/deployments`, {
+  const res = await fetch(`${API}/v13/deployments?skipAutoDetectionConfirmation=1`, {
     method: 'POST',
     headers: headers(token),
     body: JSON.stringify({

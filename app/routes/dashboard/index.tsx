@@ -1,7 +1,7 @@
 import { createRoute } from 'honox/factory';
 import { eq } from 'drizzle-orm';
 import { getDb } from '../../db';
-import { users } from '../../db/schema';
+import { users, projects } from '../../db/schema';
 import { requireAuth } from '../../lib/auth-guard';
 import Navbar from '../../components/navbar';
 import ProjectList from '../../islands/project-list';
@@ -10,6 +10,16 @@ export default createRoute(requireAuth, async (c) => {
   const session = c.get('session');
   const db = getDb(c.env.DB);
   const user = await db.select().from(users).where(eq(users.id, session.userId!)).get();
+
+  const projectCount = await db
+    .select({ id: projects.id })
+    .from(projects)
+    .where(eq(projects.userId, session.userId!))
+    .all();
+
+  if (projectCount.length === 0) {
+    return c.redirect('/dashboard/new');
+  }
 
   return c.render(
     <div class="min-h-screen">

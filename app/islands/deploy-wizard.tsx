@@ -6,6 +6,7 @@ import { isEnvFile, parseEnvFile } from '../lib/env-parser';
 import type { EnvVar } from '../lib/env-parser';
 
 interface Props {
+  isLoggedIn: boolean;
   hasVercel: boolean;
   hasCloudflare: boolean;
 }
@@ -25,8 +26,12 @@ const DEPLOY_STEPS = [
   '部署完成！',
 ];
 
-export default function DeployWizard({ hasVercel, hasCloudflare }: Props) {
+export default function DeployWizard({ isLoggedIn, hasVercel, hasCloudflare }: Props) {
   const [currentStep, setCurrentStep] = useState(1);
+  const [loggedIn, setLoggedIn] = useState(isLoggedIn);
+  const [vercelConnected, setVercelConnected] = useState(hasVercel);
+  const [authLoading, setAuthLoading] = useState(false);
+  const [showGithubPrompt, setShowGithubPrompt] = useState(false);
 
   // Step 1 state
   const [dragging, setDragging] = useState(false);
@@ -53,9 +58,33 @@ export default function DeployWizard({ hasVercel, hasCloudflare }: Props) {
   // Error
   const [error, setError] = useState('');
 
-  // Env vars state
+  // Env vars state (collected silently from .env files)
   const [envVars, setEnvVars] = useState<EnvVar[]>([]);
-  const [showEnvModal, setShowEnvModal] = useState(false);
+
+  // Listen for OAuth popup messages
+  useEffect(() => {
+    const handleMessage = (e: MessageEvent) => {
+      if (e.data?.type === 'github-connected') {
+        setLoggedIn(true);
+        setAuthLoading(false);
+        setCurrentStep(2);
+      }
+      if (e.data?.type === 'vercel-connected') {
+        setVercelConnected(true);
+        setAuthLoading(false);
+      }
+    };
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
+
+  const openOAuthPopup = (url: string) => {
+    const w = 600;
+    const h = 700;
+    const left = window.screenX + (window.outerWidth - w) / 2;
+    const top = window.screenY + (window.outerHeight - h) / 2;
+    window.open(url, 'oauth-popup', `width=${w},height=${h},left=${left},top=${top}`);
+  };
 
   // Detect framework from file list
   const detectFramework = (fileList: FileEntry[]) => {
@@ -243,7 +272,7 @@ export default function DeployWizard({ hasVercel, hasCloudflare }: Props) {
 
   // Step 3: Deploy to Vercel
   const handleDeployToVercel = useCallback(async () => {
-    if (!hasVercel) {
+    if (!vercelConnected) {
       setError('請先連結 Vercel');
       return;
     }
@@ -276,36 +305,31 @@ export default function DeployWizard({ hasVercel, hasCloudflare }: Props) {
         };
       };
 
-      // Simulate deploy steps with polling
-      for (let i = 1; i <= 5; i++) {
+      // Progress animation + polling
+      let foundUrl = '';
+
+      // Steps 1-2: pure animation (no polling yet)
+      for (let i = 1; i <= 2; i++) {
         await new Promise((r) => setTimeout(r, 1200));
         setDeployStep(i);
-
-        if (i >= 3) {
-          const data = await pollStatus();
-          if (data?.project.status === 'live' && data.project.deploymentUrl) {
-            setDeploymentUrl(data.project.deploymentUrl);
-            setDeployStep(5);
-            break;
-          }
-          if (data?.project.status === 'failed') {
-            throw new Error(data.deployment?.errorMessage || '部署失敗');
-          }
-        }
       }
 
-      // Final poll if no URL yet
-      if (!deploymentUrl) {
-        for (let attempt = 0; attempt < 10; attempt++) {
-          await new Promise((r) => setTimeout(r, 3000));
-          const data = await pollStatus();
-          if (data?.project.status === 'live' && data.project.deploymentUrl) {
-            setDeploymentUrl(data.project.deploymentUrl);
-            break;
-          }
-          if (data?.project.status === 'failed') {
-            throw new Error(data.deployment?.errorMessage || '部署失敗');
-          }
+      // Steps 3+: poll until live
+      for (let attempt = 0; attempt < 30; attempt++) {
+        await new Promise((r) => setTimeout(r, 2000));
+
+        // Advance visual steps up to 4 (keep 5 for "完成")
+        if (attempt < 2) setDeployStep(3 + attempt);
+
+        const data = await pollStatus();
+        if (data?.project.status === 'live' && data.project.deploymentUrl) {
+          foundUrl = data.project.deploymentUrl;
+          setDeploymentUrl(foundUrl);
+          setDeployStep(5);
+          break;
+        }
+        if (data?.project.status === 'failed') {
+          throw new Error(data.deployment?.errorMessage || '部署失敗');
         }
       }
 
@@ -316,7 +340,7 @@ export default function DeployWizard({ hasVercel, hasCloudflare }: Props) {
       setError(err instanceof Error ? err.message : String(err));
       setIsDeploying(false);
     }
-  }, [projectId, hasVercel, vercelProjectName, deploymentUrl, envVars]);
+  }, [projectId, vercelConnected, vercelProjectName, deploymentUrl, envVars]);
 
   return (
     <div class="animate-slide-up">
@@ -381,25 +405,37 @@ export default function DeployWizard({ hasVercel, hasCloudflare }: Props) {
           <div
             onDragOver={(e: DragEvent) => {
               e.preventDefault();
-              setDragging(true);
+              if (!isReading) setDragging(true);
             }}
             onDragLeave={() => setDragging(false)}
-            onDrop={handleDrop}
-            onClick={() => document.getElementById('folder-input')?.click()}
-            class="rounded-2xl p-12 text-center cursor-pointer transition-all mb-6"
-            style={`border:2px dashed ${dragging ? '#818cf8' : 'rgba(255,255,255,0.15)'};background:${dragging ? 'rgba(129,140,248,0.05)' : 'rgba(0,0,0,0.2)'}`}
+            onDrop={isReading ? undefined : handleDrop}
+            onClick={() => {
+              if (!isReading) document.getElementById('folder-input')?.click();
+            }}
+            class="rounded-2xl p-12 text-center transition-all mb-6"
+            style={`border:2px dashed ${dragging ? '#818cf8' : 'rgba(255,255,255,0.15)'};background:${isReading ? 'rgba(129,140,248,0.05)' : dragging ? 'rgba(129,140,248,0.05)' : 'rgba(0,0,0,0.2)'};cursor:${isReading ? 'default' : 'pointer'}`}
           >
-            <div class="text-5xl mb-4">{files.length > 0 ? '📦' : isReading ? '⏳' : '📁'}</div>
-            <p class="text-lg font-semibold mb-2">
-              {files.length > 0
-                ? `已讀取 ${files.length} 個檔案`
-                : isReading
-                  ? '正在讀取檔案...'
-                  : '拖放資料夾到這裡'}
-            </p>
-            <p class="text-sm" style="color:rgba(255,255,255,0.4)">
-              或點擊選擇資料夾
-            </p>
+            {isReading ? (
+              <>
+                <div class="flex justify-center mb-4">
+                  <span class="animate-spin inline-block w-10 h-10 border-3 border-white/20 border-t-indigo-400 rounded-full"></span>
+                </div>
+                <p class="text-lg font-semibold mb-2">正在讀取檔案...</p>
+                <p class="text-sm" style="color:rgba(255,255,255,0.4)">
+                  請稍候，正在掃描你的專案
+                </p>
+              </>
+            ) : (
+              <>
+                <div class="text-5xl mb-4">{files.length > 0 ? '📦' : '📁'}</div>
+                <p class="text-lg font-semibold mb-2">
+                  {files.length > 0 ? `已讀取 ${files.length} 個檔案` : '拖放資料夾到這裡'}
+                </p>
+                <p class="text-sm" style="color:rgba(255,255,255,0.4)">
+                  {files.length > 0 ? '點擊重新選擇資料夾' : '或點擊選擇資料夾'}
+                </p>
+              </>
+            )}
           </div>
 
           {/* Progress bar */}
@@ -427,18 +463,6 @@ export default function DeployWizard({ hasVercel, hasCloudflare }: Props) {
             </div>
           )}
 
-          {/* Env vars detection */}
-          {envVars.length > 0 && (
-            <div
-              class="flex items-center gap-2 mb-6 px-4 py-2.5 rounded-xl"
-              style="background:rgba(129,140,248,0.1);border:1px solid rgba(129,140,248,0.2)"
-            >
-              <span class="text-sm font-medium" style="color:#818cf8">
-                🔑 偵測到 {envVars.length} 個環境變數，部署時可設定到 Vercel
-              </span>
-            </div>
-          )}
-
           {/* Repo name + next */}
           {files.length > 0 && (
             <div class="space-y-4">
@@ -455,6 +479,43 @@ export default function DeployWizard({ hasVercel, hasCloudflare }: Props) {
                   style="background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.1)"
                 />
               </div>
+              {/* GitHub login prompt for non-logged-in users */}
+              {showGithubPrompt && !loggedIn && (
+                <div
+                  class="rounded-xl px-5 py-4 space-y-3"
+                  style="background:rgba(129,140,248,0.08);border:1px solid rgba(129,140,248,0.25)"
+                >
+                  <p class="text-sm leading-relaxed" style="color:rgba(255,255,255,0.7)">
+                    我們會用 <strong style="color:#fff">GitHub</strong> 來存放你的程式碼。
+                    <br />
+                    如果你還沒有 GitHub 帳號，可以在彈出視窗中免費註冊。
+                  </p>
+                  <button
+                    onClick={() => {
+                      setAuthLoading(true);
+                      openOAuthPopup('/api/auth/github?mode=popup');
+                    }}
+                    disabled={authLoading}
+                    class="w-full py-3 rounded-xl text-white font-bold text-sm border-none cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    style="background:linear-gradient(135deg,#333 0%,#24292e 100%)"
+                  >
+                    {authLoading ? (
+                      <>
+                        <span class="animate-spin inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full"></span>
+                        等待登入中...
+                      </>
+                    ) : (
+                      <>
+                        <svg class="w-5 h-5" viewBox="0 0 16 16" fill="currentColor">
+                          <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
+                        </svg>
+                        登入 GitHub 並繼續
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+
               <button
                 onClick={() => {
                   if (!repoName.trim()) {
@@ -462,9 +523,14 @@ export default function DeployWizard({ hasVercel, hasCloudflare }: Props) {
                     return;
                   }
                   setError('');
+                  if (!loggedIn) {
+                    setShowGithubPrompt(true);
+                    return;
+                  }
                   setCurrentStep(2);
                 }}
                 class="w-full py-3.5 bg-vs-gradient-btn rounded-xl text-white font-bold text-base border-none cursor-pointer transition-transform hover:-translate-y-0.5"
+                style={showGithubPrompt && !loggedIn ? 'display:none' : ''}
               >
                 下一步 →
               </button>
@@ -477,14 +543,6 @@ export default function DeployWizard({ hasVercel, hasCloudflare }: Props) {
       {currentStep === 2 && (
         <div class="card-vs p-8" style="cursor:default">
           <h2 class="text-xl font-bold mb-6">🐙 連結 GitHub</h2>
-
-          <div
-            class="flex items-center gap-3 mb-6 px-4 py-3 rounded-xl"
-            style="background:rgba(52,211,153,0.1);border:1px solid rgba(52,211,153,0.2)"
-          >
-            <span class="w-2.5 h-2.5 rounded-full bg-vs-green"></span>
-            <span class="text-vs-green font-medium text-sm">GitHub 已連結</span>
-          </div>
 
           <div class="mb-6">
             <label class="block text-sm font-medium mb-2" style="color:rgba(255,255,255,0.7)">
@@ -554,35 +612,60 @@ export default function DeployWizard({ hasVercel, hasCloudflare }: Props) {
 
           {!isDeploying && deployStep === 0 && (
             <div class="space-y-4">
-              {/* Vercel option */}
-              <button
-                onClick={() => {
-                  if (envVars.length > 0) {
-                    setShowEnvModal(true);
-                  } else {
-                    handleDeployToVercel();
-                  }
-                }}
-                disabled={!hasVercel}
-                class="w-full p-5 rounded-2xl text-left cursor-pointer flex items-center justify-between disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                style="background:rgba(0,0,0,0.2);border:1px solid rgba(255,255,255,0.1)"
-              >
-                <div class="flex items-center gap-4">
-                  <span class="text-2xl">▲</span>
-                  <div>
-                    <div class="font-bold flex items-center gap-2">
-                      Vercel
-                      <span class="text-xs px-2 py-0.5 rounded-full bg-vs-gradient-btn text-white">
-                        推薦
-                      </span>
-                    </div>
-                    <div class="text-sm mt-1" style="color:rgba(255,255,255,0.5)">
-                      {hasVercel ? '自動部署，全球 CDN' : '請先在導航列連結 Vercel'}
+              {/* Vercel connect or deploy */}
+              {!vercelConnected ? (
+                <button
+                  onClick={() => {
+                    setAuthLoading(true);
+                    openOAuthPopup('/api/auth/vercel?mode=popup');
+                  }}
+                  disabled={authLoading}
+                  class="w-full p-5 rounded-2xl text-left cursor-pointer flex items-center justify-between transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  style="background:rgba(0,0,0,0.2);border:1px solid rgba(129,140,248,0.3)"
+                >
+                  <div class="flex items-center gap-4">
+                    <span class="text-2xl">▲</span>
+                    <div>
+                      <div class="font-bold flex items-center gap-2">
+                        連結 Vercel
+                        <span class="text-xs px-2 py-0.5 rounded-full bg-vs-gradient-btn text-white">
+                          必要
+                        </span>
+                      </div>
+                      <div class="text-sm mt-1" style="color:rgba(255,255,255,0.5)">
+                        {authLoading ? '等待連結中...' : '點擊連結你的 Vercel 帳號以開始部署'}
+                      </div>
                     </div>
                   </div>
-                </div>
-                <span style="color:rgba(255,255,255,0.3)">→</span>
-              </button>
+                  {authLoading ? (
+                    <span class="animate-spin inline-block w-5 h-5 border-2 border-white/30 border-t-white rounded-full"></span>
+                  ) : (
+                    <span style="color:rgba(255,255,255,0.3)">→</span>
+                  )}
+                </button>
+              ) : (
+                <button
+                  onClick={handleDeployToVercel}
+                  class="w-full p-5 rounded-2xl text-left cursor-pointer flex items-center justify-between transition-all"
+                  style="background:rgba(0,0,0,0.2);border:1px solid rgba(255,255,255,0.1)"
+                >
+                  <div class="flex items-center gap-4">
+                    <span class="text-2xl">▲</span>
+                    <div>
+                      <div class="font-bold flex items-center gap-2">
+                        Vercel
+                        <span class="text-xs px-2 py-0.5 rounded-full bg-vs-gradient-btn text-white">
+                          推薦
+                        </span>
+                      </div>
+                      <div class="text-sm mt-1" style="color:rgba(255,255,255,0.5)">
+                        自動部署，全球 CDN
+                      </div>
+                    </div>
+                  </div>
+                  <span style="color:rgba(255,255,255,0.3)">→</span>
+                </button>
+              )}
 
               {/* Cloudflare Pages option - disabled */}
               <button
@@ -669,114 +752,12 @@ export default function DeployWizard({ hasVercel, hasCloudflare }: Props) {
           )}
 
           <div class="flex flex-col gap-3 max-w-sm mx-auto">
-            {projectId && (
-              <a
-                href={`/dashboard/${projectId}`}
-                class="block w-full py-3.5 bg-vs-gradient-btn rounded-xl text-white font-bold text-base text-center no-underline"
-              >
-                查看專案
-              </a>
-            )}
             <a
-              href="/dashboard"
-              class="block w-full py-3.5 rounded-xl text-center font-medium text-sm no-underline"
-              style="background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.7)"
+              href={projectId ? `/dashboard/${projectId}` : '/dashboard'}
+              class="block w-full py-3.5 bg-vs-gradient-btn rounded-xl text-white font-bold text-base text-center no-underline"
             >
-              前往 Dashboard
+              前往專案 Dashboard
             </a>
-          </div>
-        </div>
-      )}
-
-      {/* ==================== Env Vars Modal ==================== */}
-      {showEnvModal && (
-        <div
-          class="fixed inset-0 z-50 flex items-center justify-center"
-          style="background:rgba(0,0,0,0.7);backdrop-filter:blur(4px)"
-          onClick={() => setShowEnvModal(false)}
-        >
-          <div
-            class="card-vs p-8 max-w-lg w-full mx-4 max-h-[80vh] overflow-y-auto"
-            style="background:rgba(26,26,46,0.95);cursor:default"
-            onClick={(e: Event) => e.stopPropagation()}
-          >
-            <h3 class="text-xl font-bold mb-2">🔑 環境變數設定</h3>
-            <p class="text-sm mb-6" style="color:rgba(255,255,255,0.5)">
-              我們從你的 .env 檔案中偵測到以下環境變數。這些變數會在部署時設定到
-              Vercel，讓你的應用程式正常運作。
-            </p>
-
-            <div class="space-y-3 mb-6">
-              {envVars.map((v, i) => (
-                <div key={i} class="flex gap-2">
-                  <input
-                    type="text"
-                    value={v.key}
-                    onInput={(e: Event) => {
-                      const updated = [...envVars];
-                      updated[i] = { ...updated[i], key: (e.target as HTMLInputElement).value };
-                      setEnvVars(updated);
-                    }}
-                    class="flex-1 px-3 py-2 rounded-lg text-white font-mono text-sm focus:outline-none"
-                    style="background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.1)"
-                    placeholder="KEY"
-                  />
-                  <input
-                    type="text"
-                    value={v.value}
-                    onInput={(e: Event) => {
-                      const updated = [...envVars];
-                      updated[i] = { ...updated[i], value: (e.target as HTMLInputElement).value };
-                      setEnvVars(updated);
-                    }}
-                    class="flex-[2] px-3 py-2 rounded-lg text-white font-mono text-sm focus:outline-none"
-                    style="background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.1)"
-                    placeholder="value"
-                  />
-                  <button
-                    onClick={() => setEnvVars(envVars.filter((_, j) => j !== i))}
-                    class="px-2 py-2 rounded-lg text-sm border-none cursor-pointer"
-                    style="background:rgba(239,68,68,0.15);color:#ef4444"
-                  >
-                    ✕
-                  </button>
-                </div>
-              ))}
-            </div>
-
-            <button
-              onClick={() => setEnvVars([...envVars, { key: '', value: '' }])}
-              class="w-full py-2 rounded-lg text-sm font-medium border-none cursor-pointer mb-6"
-              style="background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.6);border:1px dashed rgba(255,255,255,0.15)"
-            >
-              + 新增變數
-            </button>
-
-            <div class="flex gap-3">
-              <button
-                onClick={() => {
-                  setEnvVars([]);
-                  setShowEnvModal(false);
-                  handleDeployToVercel();
-                }}
-                class="px-5 py-3 rounded-xl text-sm font-medium border-none cursor-pointer"
-                style="background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.6)"
-              >
-                略過
-              </button>
-              <button
-                onClick={() => {
-                  const filtered = envVars.filter((v) => v.key.trim());
-                  setEnvVars(filtered);
-                  setShowEnvModal(false);
-                  handleDeployToVercel();
-                }}
-                class="flex-1 py-3 rounded-xl text-white font-bold text-sm border-none cursor-pointer"
-                style="background:linear-gradient(135deg,#818cf8 0%,#6366f1 100%)"
-              >
-                確認並部署
-              </button>
-            </div>
           </div>
         </div>
       )}
@@ -833,11 +814,11 @@ export default function DeployWizard({ hasVercel, hasCloudflare }: Props) {
               <button
                 onClick={() => {
                   setShowCelebration(false);
-                  window.location.href = '/dashboard';
+                  window.location.href = projectId ? `/dashboard/${projectId}` : '/dashboard';
                 }}
                 class="w-full py-3 rounded-xl font-semibold text-sm border-none cursor-pointer text-white bg-vs-gradient-btn"
               >
-                前往 Dashboard
+                前往專案 Dashboard
               </button>
             </div>
           </div>

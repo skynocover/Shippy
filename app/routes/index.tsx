@@ -42,7 +42,7 @@ export default createRoute((c) => {
           </p>
 
           <a
-            href="/api/auth/github"
+            href="/dashboard/new"
             class="inline-flex items-center gap-3 bg-vs-gradient-btn border-none rounded-2xl px-12 py-5 text-white text-xl font-bold cursor-pointer no-underline animate-glow transition-transform hover:-translate-y-1"
             style="box-shadow:0 8px 32px rgba(99,102,241,0.35)"
           >
