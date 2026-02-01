@@ -120,6 +120,25 @@ export const setEnvVars = async (
   }
 };
 
+interface GitNamespace {
+  id: string;
+  name: string;
+  slug: string;
+  ownerType: string;
+}
+
+/** Check which GitHub accounts/orgs have the Vercel GitHub App installed */
+export const getGitNamespaces = async (token: string): Promise<GitNamespace[]> => {
+  const res = await fetch(`${API}/v1/integrations/git-namespaces?provider=github`, {
+    headers: headers(token),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Vercel getGitNamespaces failed: ${res.status} ${text}`);
+  }
+  return res.json() as Promise<GitNamespace[]>;
+};
+
 interface DomainConfigResponse {
   configuredBy: string | null;
   misconfigured: boolean;

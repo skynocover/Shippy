@@ -51,6 +51,9 @@ export default function DeployWizard({ isLoggedIn, hasVercel, hasCloudflare }: P
   const [deployStep, setDeployStep] = useState(0);
   const [deploymentUrl, setDeploymentUrl] = useState('');
   const [vercelProjectName, setVercelProjectName] = useState('');
+  const [vercelGithubAppInstalled, setVercelGithubAppInstalled] = useState<boolean | null>(null);
+  const [vercelGithubAppInstallUrl, setVercelGithubAppInstallUrl] = useState('');
+  const [checkingGithubApp, setCheckingGithubApp] = useState(false);
 
   // Step 4 state
   const [showCelebration, setShowCelebration] = useState(false);
@@ -85,6 +88,28 @@ export default function DeployWizard({ isLoggedIn, hasVercel, hasCloudflare }: P
     const top = window.screenY + (window.outerHeight - h) / 2;
     window.open(url, 'oauth-popup', `width=${w},height=${h},left=${left},top=${top}`);
   };
+
+  // Check if Vercel GitHub App is installed when Vercel is connected on Step 3
+  const checkVercelGithubApp = useCallback(async () => {
+    setCheckingGithubApp(true);
+    try {
+      const res = await fetch('/api/auth/vercel/github-status');
+      if (res.ok) {
+        const data = (await res.json()) as { installed: boolean; installUrl: string };
+        setVercelGithubAppInstalled(data.installed);
+        setVercelGithubAppInstallUrl(data.installUrl);
+      }
+    } catch {
+      setVercelGithubAppInstalled(false);
+    }
+    setCheckingGithubApp(false);
+  }, []);
+
+  useEffect(() => {
+    if (vercelConnected && currentStep === 3 && vercelGithubAppInstalled === null) {
+      checkVercelGithubApp();
+    }
+  }, [vercelConnected, currentStep, vercelGithubAppInstalled, checkVercelGithubApp]);
 
   // Detect framework from file list
   const detectFramework = (fileList: FileEntry[]) => {
@@ -612,8 +637,8 @@ export default function DeployWizard({ isLoggedIn, hasVercel, hasCloudflare }: P
 
           {!isDeploying && deployStep === 0 && (
             <div class="space-y-4">
-              {/* Vercel connect or deploy */}
-              {!vercelConnected ? (
+              {/* Step 1: Connect Vercel */}
+              {!vercelConnected && (
                 <button
                   onClick={() => {
                     setAuthLoading(true);
@@ -629,11 +654,11 @@ export default function DeployWizard({ isLoggedIn, hasVercel, hasCloudflare }: P
                       <div class="font-bold flex items-center gap-2">
                         連結 Vercel
                         <span class="text-xs px-2 py-0.5 rounded-full bg-vs-gradient-btn text-white">
-                          必要
+                          步驟 1
                         </span>
                       </div>
                       <div class="text-sm mt-1" style="color:rgba(255,255,255,0.5)">
-                        {authLoading ? '等待連結中...' : '點擊連結你的 Vercel 帳號以開始部署'}
+                        {authLoading ? '等待連結中...' : '點擊連結你的 Vercel 帳號'}
                       </div>
                     </div>
                   </div>
@@ -643,28 +668,101 @@ export default function DeployWizard({ isLoggedIn, hasVercel, hasCloudflare }: P
                     <span style="color:rgba(255,255,255,0.3)">→</span>
                   )}
                 </button>
-              ) : (
-                <button
-                  onClick={handleDeployToVercel}
-                  class="w-full p-5 rounded-2xl text-left cursor-pointer flex items-center justify-between transition-all"
-                  style="background:rgba(0,0,0,0.2);border:1px solid rgba(255,255,255,0.1)"
-                >
-                  <div class="flex items-center gap-4">
-                    <span class="text-2xl">▲</span>
-                    <div>
-                      <div class="font-bold flex items-center gap-2">
-                        Vercel
-                        <span class="text-xs px-2 py-0.5 rounded-full bg-vs-gradient-btn text-white">
-                          推薦
-                        </span>
-                      </div>
-                      <div class="text-sm mt-1" style="color:rgba(255,255,255,0.5)">
-                        自動部署，全球 CDN
+              )}
+
+              {/* Step 2: Install Vercel GitHub App (checking / not installed) */}
+              {vercelConnected && (checkingGithubApp || vercelGithubAppInstalled !== true) && (
+                <div>
+                  {/* Vercel connected indicator */}
+                  <div
+                    class="flex items-center gap-2 mb-4 px-4 py-2.5 rounded-xl"
+                    style="background:rgba(52,211,153,0.1);border:1px solid rgba(52,211,153,0.2)"
+                  >
+                    <span class="w-2 h-2 rounded-full bg-vs-green"></span>
+                    <span class="text-vs-green font-medium text-sm">Vercel 已連結</span>
+                  </div>
+
+                  {checkingGithubApp ? (
+                    <div
+                      class="flex items-center gap-3 p-5 rounded-2xl"
+                      style="background:rgba(0,0,0,0.2);border:1px solid rgba(255,255,255,0.1)"
+                    >
+                      <span class="animate-spin inline-block w-5 h-5 border-2 border-white/20 border-t-indigo-400 rounded-full"></span>
+                      <span class="text-sm" style="color:rgba(255,255,255,0.5)">
+                        正在檢查 GitHub 整合狀態...
+                      </span>
+                    </div>
+                  ) : (
+                    <div
+                      class="p-5 rounded-2xl space-y-3"
+                      style="background:rgba(0,0,0,0.2);border:1px solid rgba(243,186,47,0.3)"
+                    >
+                      <p class="text-sm leading-relaxed" style="color:rgba(255,255,255,0.7)">
+                        Vercel 需要存取你的 GitHub 帳號才能部署。
+                        <br />
+                        請在彈出視窗中安裝 <strong style="color:#fff">Vercel GitHub App</strong>
+                        ，並授權存取你的倉庫。
+                      </p>
+                      <button
+                        onClick={() => {
+                          openOAuthPopup(vercelGithubAppInstallUrl);
+                        }}
+                        class="w-full py-3 rounded-xl text-white font-bold text-sm border-none cursor-pointer flex items-center justify-center gap-2"
+                        style="background:linear-gradient(135deg,#333 0%,#24292e 100%)"
+                      >
+                        <svg class="w-5 h-5" viewBox="0 0 16 16" fill="currentColor">
+                          <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
+                        </svg>
+                        安裝 Vercel GitHub App
+                      </button>
+                      <button
+                        onClick={checkVercelGithubApp}
+                        class="w-full py-2 rounded-xl text-sm font-medium border-none cursor-pointer"
+                        style="background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.5)"
+                      >
+                        安裝完成，重新檢查
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Step 3: Ready to deploy */}
+              {vercelConnected && vercelGithubAppInstalled === true && (
+                <div>
+                  {/* All connected indicator */}
+                  <div
+                    class="flex items-center gap-2 mb-4 px-4 py-2.5 rounded-xl"
+                    style="background:rgba(52,211,153,0.1);border:1px solid rgba(52,211,153,0.2)"
+                  >
+                    <span class="w-2 h-2 rounded-full bg-vs-green"></span>
+                    <span class="text-vs-green font-medium text-sm">
+                      Vercel 已連結 · GitHub App 已安裝
+                    </span>
+                  </div>
+
+                  <button
+                    onClick={handleDeployToVercel}
+                    class="w-full p-5 rounded-2xl text-left cursor-pointer flex items-center justify-between transition-all"
+                    style="background:rgba(0,0,0,0.2);border:1px solid rgba(255,255,255,0.1)"
+                  >
+                    <div class="flex items-center gap-4">
+                      <span class="text-2xl">▲</span>
+                      <div>
+                        <div class="font-bold flex items-center gap-2">
+                          部署到 Vercel
+                          <span class="text-xs px-2 py-0.5 rounded-full bg-vs-gradient-btn text-white">
+                            推薦
+                          </span>
+                        </div>
+                        <div class="text-sm mt-1" style="color:rgba(255,255,255,0.5)">
+                          自動部署，全球 CDN
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  <span style="color:rgba(255,255,255,0.3)">→</span>
-                </button>
+                    <span style="color:rgba(255,255,255,0.3)">→</span>
+                  </button>
+                </div>
               )}
 
               {/* Cloudflare Pages option - disabled */}
