@@ -26,9 +26,11 @@ export default function DomainSetup({ projectId, hasCloudflare, currentDomain, d
 
   if (!hasCloudflare) {
     return (
-      <div class="bg-gray-900 rounded-lg p-6 border border-gray-800">
-        <h3 class="font-semibold mb-2">Custom Domain</h3>
-        <p class="text-sm text-gray-400">Connect Cloudflare on the dashboard to set up a custom domain.</p>
+      <div class="p-5 rounded-xl" style="background:rgba(0,0,0,0.2)">
+        <h3 class="font-semibold mb-2">自訂網域</h3>
+        <p class="text-sm" style="color:rgba(255,255,255,0.5)">
+          請先在導航列連結 Cloudflare 以設定自訂網域。
+        </p>
       </div>
     )
   }
@@ -40,13 +42,13 @@ export default function DomainSetup({ projectId, hasCloudflare, currentDomain, d
       const res = await fetch('/api/cloudflare/zones')
       const data = await res.json() as { zones?: Zone[]; error?: string }
       if (!res.ok || !data.zones) {
-        setError(data.error || 'Failed to load zones')
+        setError(data.error || '載入網域失敗')
         return
       }
       setZones(data.zones)
       setStep('select')
     } catch {
-      setError('Network error. Please try again.')
+      setError('網路錯誤，請重試。')
     } finally {
       setLoadingZones(false)
     }
@@ -70,7 +72,7 @@ export default function DomainSetup({ projectId, hasCloudflare, currentDomain, d
       const data = await res.json() as { ok?: boolean; domain?: string; status?: string; error?: string }
 
       if (!res.ok || !data.ok) {
-        setError(data.error || 'Failed to setup domain')
+        setError(data.error || '設定網域失敗')
         return
       }
 
@@ -78,7 +80,7 @@ export default function DomainSetup({ projectId, hasCloudflare, currentDomain, d
       setStatus(data.status || 'active')
       setStep('done')
     } catch {
-      setError('Network error. Please try again.')
+      setError('網路錯誤，請重試。')
     } finally {
       setSetting(false)
     }
@@ -90,74 +92,76 @@ export default function DomainSetup({ projectId, hasCloudflare, currentDomain, d
       : selectedZone.name)
     : ''
 
-  const statusStyles: Record<string, { color: string; bg: string }> = {
-    pending: { color: 'text-yellow-400', bg: 'bg-yellow-400' },
-    active: { color: 'text-green-400', bg: 'bg-green-400' },
-    error: { color: 'text-red-400', bg: 'bg-red-400' },
+  const statusStyles: Record<string, { color: string }> = {
+    pending: { color: '#facc15' },
+    active: { color: '#34d399' },
+    error: { color: '#ef4444' },
   }
 
   return (
-    <div class="bg-gray-900 rounded-lg p-6 border border-gray-800">
-      <h3 class="font-semibold mb-4">Custom Domain</h3>
-
+    <div>
       {error && (
-        <div class="mb-4 px-4 py-2 bg-red-400/10 text-red-400 text-sm rounded-lg">
+        <div class="mb-4 px-4 py-2 rounded-xl text-sm" style="background:rgba(239,68,68,0.1);color:#ef4444">
           {error}
         </div>
       )}
 
       {step === 'done' && domain && (
-        <div class="flex items-center justify-between">
+        <div class="flex items-center justify-between p-5 rounded-xl" style="background:rgba(52,211,153,0.1);border:1px solid rgba(52,211,153,0.2)">
           <div class="flex items-center gap-3">
-            <span class={`w-2.5 h-2.5 rounded-full ${statusStyles[status]?.bg || 'bg-gray-400'}`}></span>
-            <a
-              href={`https://${domain}`}
-              target="_blank"
-              rel="noopener"
-              class="font-mono text-sm text-indigo-400 hover:underline"
-            >
-              {domain}
-            </a>
-            <span class={`text-xs font-medium ${statusStyles[status]?.color || 'text-gray-400'}`}>
-              {status}
-            </span>
+            <span class="text-xl">✅</span>
+            <div>
+              <p class="font-semibold mb-1">網域已連結</p>
+              <a
+                href={`https://${domain}`}
+                target="_blank"
+                rel="noopener"
+                class="font-mono text-sm no-underline"
+                style="color:#34d399"
+              >
+                {domain}
+              </a>
+            </div>
           </div>
           <button
             onClick={() => { setStep('idle'); setSelectedZone(null); setSubdomain(''); setError('') }}
-            class="text-xs text-gray-500 hover:text-gray-300"
+            class="text-xs border-none cursor-pointer" style="background:none;color:rgba(255,255,255,0.4)"
           >
-            Change
+            變更
           </button>
         </div>
       )}
 
       {step === 'idle' && (
-        <button
-          onClick={loadZones}
-          disabled={loadingZones}
-          class="px-4 py-2 bg-orange-500 text-white rounded-lg text-sm font-medium hover:bg-orange-400 transition-colors disabled:opacity-50"
-        >
-          {loadingZones ? 'Loading domains...' : 'Setup Custom Domain'}
-        </button>
+        <div class="text-center p-10 rounded-xl" style="background:rgba(0,0,0,0.2)">
+          <div class="text-4xl mb-4">🌐</div>
+          <p class="mb-5" style="color:rgba(255,255,255,0.5)">
+            綁定自訂網域，讓你的網站更專業
+          </p>
+          <button
+            onClick={loadZones}
+            disabled={loadingZones}
+            class="px-6 py-3 bg-vs-gradient-cf rounded-xl text-white font-semibold border-none cursor-pointer disabled:opacity-50"
+          >
+            {loadingZones ? '載入中...' : '綁定 Cloudflare 網域'}
+          </button>
+        </div>
       )}
 
       {step === 'select' && (
         <div class="space-y-4">
           <div>
-            <label class="text-sm text-gray-400 block mb-2">Select domain</label>
-            <div class="space-y-1">
+            <label class="text-sm block mb-2" style="color:rgba(255,255,255,0.5)">選擇網域</label>
+            <div class="space-y-2">
               {zones.length === 0 && (
-                <p class="text-sm text-gray-500">No active zones found in your Cloudflare account.</p>
+                <p class="text-sm" style="color:rgba(255,255,255,0.4)">在你的 Cloudflare 帳戶中沒有找到可用的網域。</p>
               )}
               {zones.map(zone => (
                 <button
                   key={zone.id}
                   onClick={() => { setSelectedZone(zone); setStep('preview') }}
-                  class={`w-full text-left px-4 py-2.5 rounded-lg border text-sm transition-colors ${
-                    selectedZone?.id === zone.id
-                      ? 'border-orange-400 bg-orange-400/10 text-orange-400'
-                      : 'border-gray-700 hover:border-gray-600 text-gray-200'
-                  }`}
+                  class="w-full text-left px-4 py-3 rounded-xl text-sm transition-colors border-none cursor-pointer"
+                  style={`background:${selectedZone?.id === zone.id ? 'rgba(243,128,32,0.1)' : 'rgba(0,0,0,0.2)'};color:${selectedZone?.id === zone.id ? '#f38020' : 'rgba(255,255,255,0.8)'};border:1px solid ${selectedZone?.id === zone.id ? 'rgba(243,128,32,0.3)' : 'rgba(255,255,255,0.06)'}`}
                 >
                   {zone.name}
                 </button>
@@ -166,9 +170,9 @@ export default function DomainSetup({ projectId, hasCloudflare, currentDomain, d
           </div>
           <button
             onClick={() => { setStep('idle'); setError('') }}
-            class="text-sm text-gray-500 hover:text-gray-300"
+            class="text-sm border-none cursor-pointer" style="background:none;color:rgba(255,255,255,0.4)"
           >
-            Cancel
+            取消
           </button>
         </div>
       )}
@@ -176,25 +180,26 @@ export default function DomainSetup({ projectId, hasCloudflare, currentDomain, d
       {step === 'preview' && selectedZone && (
         <div class="space-y-4">
           <div>
-            <label class="text-sm text-gray-400 block mb-2">Subdomain (leave empty for root domain)</label>
+            <label class="text-sm block mb-2" style="color:rgba(255,255,255,0.5)">子網域（留空使用根網域）</label>
             <div class="flex items-center gap-2">
               <input
                 type="text"
                 value={subdomain}
                 onInput={(e) => setSubdomain((e.target as HTMLInputElement).value)}
-                placeholder="e.g. app"
-                class="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-orange-400 w-40"
+                placeholder="例如 app"
+                class="px-3 py-2 rounded-lg text-sm text-white focus:outline-none w-40"
+                style="background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.1)"
               />
-              <span class="text-gray-500 text-sm">.{selectedZone.name}</span>
+              <span class="text-sm" style="color:rgba(255,255,255,0.4)">.{selectedZone.name}</span>
             </div>
           </div>
 
-          <div class="px-4 py-3 bg-gray-800/50 rounded-lg border border-gray-700">
-            <div class="text-xs text-gray-500 mb-1">DNS Record Preview</div>
-            <div class="font-mono text-sm text-gray-200">
-              <span class="text-orange-400">{previewDomain}</span>
-              {' '}<span class="text-gray-500">CNAME</span>{' '}
-              <span class="text-green-400">cname.vercel-dns.com</span>
+          <div class="px-4 py-3 rounded-xl" style="background:rgba(0,0,0,0.2);border:1px solid rgba(255,255,255,0.06)">
+            <div class="text-xs mb-1" style="color:rgba(255,255,255,0.4)">DNS 記錄預覽</div>
+            <div class="font-mono text-sm">
+              <span style="color:#f38020">{previewDomain}</span>
+              {' '}<span style="color:rgba(255,255,255,0.3)">CNAME</span>{' '}
+              <span style="color:#34d399">cname.vercel-dns.com</span>
             </div>
           </div>
 
@@ -202,15 +207,15 @@ export default function DomainSetup({ projectId, hasCloudflare, currentDomain, d
             <button
               onClick={handleSetup}
               disabled={setting}
-              class="px-4 py-2 bg-orange-500 text-white rounded-lg text-sm font-medium hover:bg-orange-400 transition-colors disabled:opacity-50"
+              class="px-6 py-2.5 bg-vs-gradient-cf rounded-xl text-white text-sm font-semibold border-none cursor-pointer disabled:opacity-50"
             >
-              {setting ? 'Setting up...' : 'Setup Domain'}
+              {setting ? '設定中...' : '設定網域'}
             </button>
             <button
               onClick={() => { setStep('select'); setSubdomain('') }}
-              class="text-sm text-gray-500 hover:text-gray-300"
+              class="text-sm border-none cursor-pointer" style="background:none;color:rgba(255,255,255,0.4)"
             >
-              Back
+              返回
             </button>
           </div>
         </div>

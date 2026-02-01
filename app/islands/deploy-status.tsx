@@ -45,24 +45,27 @@ export default function DeployStatus({ projectId, initialStatus, initialUrl }: P
     return () => clearInterval(interval)
   }, [projectId, isActive])
 
-  const statusConfig: Record<string, { label: string; color: string; bg: string }> = {
-    created: { label: 'Created', color: 'text-gray-400', bg: 'bg-gray-400' },
-    uploading: { label: 'Uploading', color: 'text-yellow-400', bg: 'bg-yellow-400' },
-    deploying: { label: 'Deploying', color: 'text-blue-400', bg: 'bg-blue-400' },
-    live: { label: 'Live', color: 'text-green-400', bg: 'bg-green-400' },
-    failed: { label: 'Failed', color: 'text-red-400', bg: 'bg-red-400' },
+  const statusConfig: Record<string, { label: string; color: string; dot: string }> = {
+    created: { label: '已建立', color: 'rgba(156,163,175,1)', dot: '#9ca3af' },
+    uploading: { label: '上傳中', color: '#facc15', dot: '#facc15' },
+    deploying: { label: '部署中', color: '#60a5fa', dot: '#60a5fa' },
+    live: { label: '已上線', color: '#34d399', dot: '#34d399' },
+    failed: { label: '失敗', color: '#ef4444', dot: '#ef4444' },
   }
 
   const config = statusConfig[status] || statusConfig.created
 
   return (
-    <div class="bg-gray-900 rounded-lg p-6 border border-gray-800">
+    <div class="card-vs p-6" style="cursor:default">
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-3">
-          <span class={`w-3 h-3 rounded-full ${config.bg} ${isActive ? 'animate-pulse' : ''}`}></span>
-          <span class={`font-semibold ${config.color}`}>{config.label}</span>
+          <span
+            class={`w-3 h-3 rounded-full ${isActive ? 'animate-pulse' : ''}`}
+            style={`background:${config.dot}`}
+          />
+          <span class="font-semibold" style={`color:${config.color}`}>{config.label}</span>
           {isActive && (
-            <span class="text-sm text-gray-500">Checking every 3s...</span>
+            <span class="text-sm" style="color:rgba(255,255,255,0.4)">每 3 秒檢查...</span>
           )}
         </div>
 
@@ -71,27 +74,27 @@ export default function DeployStatus({ projectId, initialStatus, initialUrl }: P
             href={url}
             target="_blank"
             rel="noopener"
-            class="px-4 py-2 bg-indigo-500 text-white text-sm font-medium rounded-lg hover:bg-indigo-400 transition-colors"
+            class="px-4 py-2 bg-vs-gradient-btn text-white text-sm font-medium rounded-lg no-underline"
           >
-            Visit Site &rarr;
+            開啟網站 →
           </a>
         )}
       </div>
 
       {error && (
-        <div class="mt-4 px-4 py-2 bg-red-400/10 text-red-400 text-sm rounded-lg">
+        <div class="mt-4 px-4 py-2 rounded-lg text-sm" style="background:rgba(239,68,68,0.1);color:#ef4444">
           {error}
         </div>
       )}
 
       {url && (
         <div class="mt-4">
-          <div class="text-sm text-gray-400 mb-2">Domains</div>
+          <div class="text-sm mb-2" style="color:rgba(255,255,255,0.5)">網域</div>
           <div class="flex items-center gap-2">
-            <a href={url} target="_blank" rel="noopener" class="font-mono text-sm text-indigo-400 hover:underline">
+            <a href={url} target="_blank" rel="noopener" class="font-mono text-sm no-underline" style="color:#818cf8">
               {url.replace('https://', '')}
             </a>
-            <span class="text-xs text-gray-500 bg-gray-800 px-2 py-0.5 rounded">Production</span>
+            <span class="text-xs px-2 py-0.5 rounded" style="color:rgba(255,255,255,0.5);background:rgba(255,255,255,0.05)">Production</span>
           </div>
         </div>
       )}

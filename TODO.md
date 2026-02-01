@@ -718,3 +718,12 @@ export const domainConfigs = sqliteTable('domain_configs', {
 - 如果 Dashboard 變得很複雜，考慮前後分離
 - 前端 → Cloudflare Pages（React + Vite）
 - API → Cloudflare Workers（Hono）
+
+## TODO
+- 注意github的Vercel App
+- 確認有哪些常見但是vercel不支援的 丟給AI決定
+- 買Domain
+- 流程優化
+- i18n
+- 列表可以點擊card進入 而不是只能點擊名稱
+- 連結cloudflare 應該要可以在裡面連結 而不是只能在外面

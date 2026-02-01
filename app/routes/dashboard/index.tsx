@@ -3,9 +3,8 @@ import { eq } from 'drizzle-orm'
 import { getDb } from '../../db'
 import { users } from '../../db/schema'
 import { requireAuth } from '../../lib/auth-guard'
-import FileUploader from '../../islands/file-uploader'
+import Navbar from '../../components/navbar'
 import ProjectList from '../../islands/project-list'
-import CloudflareConnect from '../../islands/cloudflare-connect'
 
 export default createRoute(requireAuth, async (c) => {
   const session = c.get('session')
@@ -17,42 +16,19 @@ export default createRoute(requireAuth, async (c) => {
 
   return c.render(
     <div class="min-h-screen">
-      <nav class="border-b border-gray-800 px-6 py-4">
-        <div class="max-w-6xl mx-auto flex items-center justify-between">
-          <a href="/dashboard" class="text-xl font-bold">
-            <span class="text-indigo-400">Vibe</span>Ship
-          </a>
-          <div class="flex items-center gap-4">
-            {!hasVercel && (
-              <a
-                href="/api/auth/vercel"
-                class="px-4 py-2 bg-gray-800 text-gray-200 rounded-lg hover:bg-gray-700 transition-colors text-sm font-medium"
-              >
-                Connect Vercel
-              </a>
-            )}
-            {hasVercel && (
-              <span class="text-sm text-green-400 flex items-center gap-1.5">
-                <span class="w-2 h-2 bg-green-400 rounded-full"></span>
-                Vercel connected
-              </span>
-            )}
-            <CloudflareConnect isConnected={hasCloudflare} />
-            <span class="text-sm text-gray-400">{user?.username}</span>
-            {user?.avatarUrl && (
-              <img src={user.avatarUrl} alt="" class="w-8 h-8 rounded-full" />
-            )}
-          </div>
-        </div>
-      </nav>
+      <Navbar
+        isLoggedIn={true}
+        username={user?.username}
+        avatarUrl={user?.avatarUrl ?? undefined}
+        hasVercel={hasVercel}
+        hasCloudflare={hasCloudflare}
+      />
 
-      <main class="max-w-6xl mx-auto px-6 py-8 space-y-8">
-        <div>
-          <h1 class="text-2xl font-bold mb-2">Projects</h1>
-          <p class="text-gray-400">Upload your code and deploy it to production.</p>
+      <main class="max-w-6xl mx-auto px-6 py-10 animate-slide-up">
+        <div class="mb-10">
+          <h1 class="text-3xl font-bold mb-1">👋 歡迎回來</h1>
+          <p style="color:rgba(255,255,255,0.5)">管理你的專案</p>
         </div>
-
-        <FileUploader hasVercel={hasVercel} />
 
         <ProjectList />
       </main>

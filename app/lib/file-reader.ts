@@ -1,0 +1,46 @@
+import { shouldIgnore } from './constants'
+
+export interface FileEntry {
+  path: string
+  content: string // base64
+}
+
+export async function readFileAsBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const result = reader.result as string
+      resolve(result.split(',')[1])
+    }
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
+}
+
+export async function traverseEntry(entry: FileSystemEntry, basePath: string = ''): Promise<FileEntry[]> {
+  const files: FileEntry[] = []
+  const path = basePath ? `${basePath}/${entry.name}` : entry.name
+
+  if (shouldIgnore(entry.name)) return files
+
+  if (entry.isFile) {
+    const fileEntry = entry as FileSystemFileEntry
+    const file = await new Promise<File>((resolve, reject) => {
+      fileEntry.file(resolve, reject)
+    })
+    const content = await readFileAsBase64(file)
+    files.push({ path, content })
+  } else if (entry.isDirectory) {
+    const dirEntry = entry as FileSystemDirectoryEntry
+    const reader = dirEntry.createReader()
+    const entries = await new Promise<FileSystemEntry[]>((resolve, reject) => {
+      reader.readEntries(resolve, reject)
+    })
+    for (const child of entries) {
+      const childFiles = await traverseEntry(child, path)
+      files.push(...childFiles)
+    }
+  }
+
+  return files
+}
