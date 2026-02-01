@@ -4,10 +4,10 @@ interface DetectionResult {
   outputDirectory?: string;
 }
 
-export function detectFramework(
+export const detectFramework = (
   files: string[],
   packageJson?: Record<string, unknown>,
-): DetectionResult {
+): DetectionResult => {
   const deps = {
     ...(packageJson?.dependencies as Record<string, string> | undefined),
     ...(packageJson?.devDependencies as Record<string, string> | undefined),
@@ -58,4 +58,4 @@ export function detectFramework(
   }
 
   return { framework: null };
-}
+};

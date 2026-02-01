@@ -1,9 +1,13 @@
 import { createRoute } from 'honox/factory';
-import { eq, and } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { getDb } from '../../../../db';
-import { users, projects } from '../../../../db/schema';
+import { projects } from '../../../../db/schema';
 import { requireAuth } from '../../../../lib/auth-guard';
-import { decrypt } from '../../../../lib/crypto';
+import {
+  getProjectByIdAndUser,
+  getUserWithTokens,
+  decryptUserToken,
+} from '../../../../lib/project-helpers';
 import * as cloudflare from '../../../../services/cloudflare';
 import * as vercel from '../../../../services/vercel';
 
@@ -13,12 +17,7 @@ export const POST = createRoute(requireAuth, async (c) => {
   const projectId = c.req.param('id');
   const db = getDb(c.env.DB);
 
-  const project = await db
-    .select()
-    .from(projects)
-    .where(and(eq(projects.id, projectId), eq(projects.userId, session.userId!)))
-    .get();
-
+  const project = await getProjectByIdAndUser(db, projectId, session.userId!);
   if (!project) {
     return c.json({ error: 'Project not found' }, 404);
   }
@@ -29,7 +28,7 @@ export const POST = createRoute(requireAuth, async (c) => {
 
   const body = await c.req
     .json<{ zoneId: string; zoneName: string; subdomain: string }>()
-    .catch(() => ({}) as any);
+    .catch(() => ({}) as { zoneId: string; zoneName: string; subdomain: string });
 
   if (!body.zoneId || !body.zoneName) {
     return c.json({ error: 'zoneId and zoneName are required' }, 400);
@@ -40,7 +39,7 @@ export const POST = createRoute(requireAuth, async (c) => {
     body.subdomain && body.subdomain !== '@' ? `${body.subdomain}.${body.zoneName}` : body.zoneName;
 
   try {
-    const user = await db.select().from(users).where(eq(users.id, session.userId!)).get();
+    const user = await getUserWithTokens(db, session.userId!);
     if (!user?.cloudflareToken) {
       return c.json({ error: 'Cloudflare not connected' }, 400);
     }
@@ -48,8 +47,8 @@ export const POST = createRoute(requireAuth, async (c) => {
       return c.json({ error: 'Vercel not connected' }, 400);
     }
 
-    const cfToken = await decrypt(user.cloudflareToken, c.env.ENCRYPTION_KEY);
-    const vercelToken = await decrypt(user.vercelToken, c.env.ENCRYPTION_KEY);
+    const cfToken = await decryptUserToken(user.cloudflareToken, c.env.ENCRYPTION_KEY);
+    const vercelToken = await decryptUserToken(user.vercelToken, c.env.ENCRYPTION_KEY);
 
     // Mark as pending
     await db
@@ -112,12 +111,7 @@ export const GET = createRoute(requireAuth, async (c) => {
   const projectId = c.req.param('id');
   const db = getDb(c.env.DB);
 
-  const project = await db
-    .select()
-    .from(projects)
-    .where(and(eq(projects.id, projectId), eq(projects.userId, session.userId!)))
-    .get();
-
+  const project = await getProjectByIdAndUser(db, projectId, session.userId!);
   if (!project) {
     return c.json({ error: 'Project not found' }, 404);
   }

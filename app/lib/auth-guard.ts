@@ -1,6 +1,6 @@
 import type { Context, Next } from 'hono';
 
-export async function requireAuth(c: Context, next: Next) {
+export const requireAuth = async (c: Context, next: Next) => {
   const session = c.get('session');
   if (!session?.userId) {
     const isApi = c.req.path.startsWith('/api/');
@@ -10,4 +10,4 @@ export async function requireAuth(c: Context, next: Next) {
     return c.redirect('/');
   }
   await next();
-}
+};

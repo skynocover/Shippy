@@ -1,44 +1,7 @@
 import { useState, useCallback, useEffect } from 'hono/jsx';
 import { shouldIgnore } from '../lib/constants';
+import { readFileAsBase64, traverseEntry } from '../lib/file-reader';
 import type { FileEntry } from '../lib/file-reader';
-
-// Re-declare file reading functions inline for client-side island
-async function readFileAsBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result as string;
-      resolve(result.split(',')[1]);
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
-
-async function traverseEntry(entry: FileSystemEntry, basePath: string = ''): Promise<FileEntry[]> {
-  const files: FileEntry[] = [];
-  const path = basePath ? `${basePath}/${entry.name}` : entry.name;
-  if (shouldIgnore(entry.name)) return files;
-  if (entry.isFile) {
-    const fileEntry = entry as FileSystemFileEntry;
-    const file = await new Promise<File>((resolve, reject) => {
-      fileEntry.file(resolve, reject);
-    });
-    const content = await readFileAsBase64(file);
-    files.push({ path, content });
-  } else if (entry.isDirectory) {
-    const dirEntry = entry as FileSystemDirectoryEntry;
-    const reader = dirEntry.createReader();
-    const entries = await new Promise<FileSystemEntry[]>((resolve, reject) => {
-      reader.readEntries(resolve, reject);
-    });
-    for (const child of entries) {
-      const childFiles = await traverseEntry(child, path);
-      files.push(...childFiles);
-    }
-  }
-  return files;
-}
 
 interface Props {
   hasVercel: boolean;
@@ -171,7 +134,8 @@ export default function DeployWizard({ hasVercel, hasCloudflare }: Props) {
         const allFiles: FileEntry[] = [];
         for (let i = 0; i < input.files.length; i++) {
           const file = input.files[i];
-          const path = (file as any).webkitRelativePath || file.name;
+          const path =
+            (file as unknown as { webkitRelativePath: string }).webkitRelativePath || file.name;
           if (shouldIgnore(path)) continue;
           const content = await readFileAsBase64(file);
           allFiles.push({ path, content });

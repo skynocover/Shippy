@@ -733,3 +733,70 @@ export const domainConfigs = sqliteTable('domain_configs', {
 1. 最上方新增Gallery連結 會跳轉到Gallery頁面
 2. 專案部署後 預設為Public 會放到Gallery
 3. 設定頁面 新增描述功能 讓用戶可以在這邊打描述 然後顯示在Gallery
+
+---
+
+## 程式碼優化計畫
+
+> 以下為全面 code review 後整理出的優化項目，依優先順序排列。
+
+### 優先度 1：刪除 Dead Code
+
+3 個 island 檔案從未被任何 route 引用，功能都已 inline 到 `project-detail.tsx`，屬於無用程式碼：
+
+| 檔案 | 行數 | 說明 |
+|------|------|------|
+| `app/islands/domain-setup.tsx` | 273 | 網域設定已 inline 在 project-detail |
+| `app/islands/deploy-status.tsx` | 123 | 部署狀態 polling 已 inline 在 project-detail |
+| `app/islands/cloudflare-connect.tsx` | 137 | Cloudflare 連結已 inline 在 project-detail |
+
+- [x] 刪除上述 3 個檔案（共 533 行）
+
+### 優先度 2：消除重複程式碼（DRY）
+
+#### 2-1. `timeAgo` 函式重複 3 處
+- [x] 提取到 `app/lib/time.ts`，三處改為 import
+
+#### 2-2. `readFileAsBase64` + `traverseEntry` 重複 3 處
+- [x] 兩個 island 改為從 `app/lib/file-reader.ts` import 函式
+
+#### 2-3. Status config（狀態標籤/顏色）重複 3 處
+- [x] 提取到 `app/lib/status.ts`
+
+#### 2-4. API routes 重複的「查詢專案 + 權限檢查」模式
+- [x] 提取到 `app/lib/project-helpers.ts`（含 `getProjectByIdAndUser`、`getUserWithTokens`、`decryptUserToken`）
+
+### 優先度 3：程式碼規範修正
+
+#### 3-1. 消除 `any` 類型（違反 CLAUDE.md 規則）
+- [x] `app/islands/deploy-wizard.tsx`：`(file as any)` → `(file as unknown as { webkitRelativePath: string })`
+- [x] `app/routes/api/projects/[id]/status.ts`：`newStatus as any` → 正確的 union type assertion
+- [x] `app/routes/api/projects/[id]/domain.ts`：`({}) as any` → 正確的型別
+
+#### 3-2. `function` 宣告改為 arrow function（違反 CLAUDE.md 規則）
+- [x] `app/lib/constants.ts`：`shouldIgnore`
+- [x] `app/lib/file-reader.ts`：`readFileAsBase64`、`traverseEntry`
+- [x] `app/lib/session.ts`：`sessionMiddleware`
+- [x] `app/lib/auth-guard.ts`：`requireAuth`
+- [x] `app/lib/id.ts`：`generateId`、`generateSubdomain`
+- [x] `app/lib/detect.ts`：`detectFramework`
+- [x] `app/db/index.ts`：`getDb`
+
+### 優先度 4：安全性改善
+
+#### 4-1. Session KV 儲存了明文 Token
+- `app/routes/api/auth/github/callback.ts:85`：`session.githubToken = accessToken`
+- `app/routes/api/auth/vercel/callback.ts:54`：`session.vercelToken = tokenData.access_token`
+
+DB 中 token 有加密儲存（正確），但 session KV 卻存了明文（有風險）。所有 API route 都是從 DB decrypt token，session 中的 token 實際上未被使用。
+- [ ] 移除 session 中的 `githubToken` 和 `vercelToken`，僅保留 `userId`
+- [ ] 清理 `SessionData` interface
+
+### 優先度 5：效能改善
+
+#### 5-1. Gallery 頁面 OG image 在每次請求時 fetch
+`app/routes/gallery.tsx:69-81` 會在每次頁面載入時對沒有 cache 的專案發起外部請求抓取 OG image。
+- [ ] 考慮改為背景任務或只在部署完成時抓取一次
+
+### 最後：格式化
+- [ ] 所有修改完成後，執行 `npx prettier --write "app/**/*.{ts,tsx}"` 確保格式一致

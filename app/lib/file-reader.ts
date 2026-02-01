@@ -5,7 +5,7 @@ export interface FileEntry {
   content: string; // base64
 }
 
-export async function readFileAsBase64(file: File): Promise<string> {
+export const readFileAsBase64 = async (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => {
@@ -15,12 +15,12 @@ export async function readFileAsBase64(file: File): Promise<string> {
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
-}
+};
 
-export async function traverseEntry(
+export const traverseEntry = async (
   entry: FileSystemEntry,
   basePath: string = '',
-): Promise<FileEntry[]> {
+): Promise<FileEntry[]> => {
   const files: FileEntry[] = [];
   const path = basePath ? `${basePath}/${entry.name}` : entry.name;
 
@@ -46,4 +46,4 @@ export async function traverseEntry(
   }
 
   return files;
-}
+};

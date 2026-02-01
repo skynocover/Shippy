@@ -1,33 +1,9 @@
 import { useState, useEffect, useCallback } from 'hono/jsx';
 import { shouldIgnore } from '../lib/constants';
+import { timeAgo } from '../lib/time';
+import { getStatusStyle } from '../lib/status';
+import { readFileAsBase64, traverseEntry } from '../lib/file-reader';
 import type { FileEntry } from '../lib/file-reader';
-
-const readFileAsBase64 = async (file: File): Promise<string> =>
-  new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve((reader.result as string).split(',')[1]);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-
-const traverseEntry = async (entry: FileSystemEntry, basePath = ''): Promise<FileEntry[]> => {
-  const files: FileEntry[] = [];
-  const path = basePath ? `${basePath}/${entry.name}` : entry.name;
-  if (shouldIgnore(entry.name)) return files;
-  if (entry.isFile) {
-    const file = await new Promise<File>((resolve, reject) => {
-      (entry as FileSystemFileEntry).file(resolve, reject);
-    });
-    files.push({ path, content: await readFileAsBase64(file) });
-  } else if (entry.isDirectory) {
-    const reader = (entry as FileSystemDirectoryEntry).createReader();
-    const entries = await new Promise<FileSystemEntry[]>((resolve, reject) => {
-      reader.readEntries(resolve, reject);
-    });
-    for (const child of entries) files.push(...(await traverseEntry(child, path)));
-  }
-  return files;
-};
 
 const CF_TOKEN_URL =
   'https://dash.cloudflare.com/profile/api-tokens?' +
@@ -81,21 +57,6 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: 'settings', label: '⚙️ 設定' },
 ];
 
-const timeAgo = (dateStr: string): string => {
-  const date = new Date(dateStr);
-  const now = Date.now();
-  const diff = now - date.getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return '剛剛';
-  if (mins < 60) return `${mins} 分鐘前`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours} 小時前`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days} 天前`;
-  const weeks = Math.floor(days / 7);
-  return `${weeks} 週前`;
-};
-
 const ProjectDetail = ({ project, deployments, hasVercel, hasCloudflare }: Props) => {
   const [activeTab, setActiveTab] = useState<TabKey>('overview');
   const [projectName, setProjectName] = useState(project.name);
@@ -141,8 +102,9 @@ const ProjectDetail = ({ project, deployments, hasVercel, hasCloudflare }: Props
   const isFailed = liveStatus === 'failed';
   const isActive = ['created', 'uploading', 'deploying'].includes(liveStatus);
 
-  const statusLabel = isLive ? '已上線' : isFailed ? '部署失敗' : '處理中';
-  const statusColor = isLive ? '#34d399' : isFailed ? '#ef4444' : '#60a5fa';
+  const currentStatus = getStatusStyle(liveStatus);
+  const statusLabel = currentStatus.label;
+  const statusColor = currentStatus.color;
 
   // Poll deploy status
   useEffect(() => {

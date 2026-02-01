@@ -1,8 +1,9 @@
 import { createRoute } from 'honox/factory';
-import { eq, and } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { getDb } from '../../../../db';
 import { projects, deployments } from '../../../../db/schema';
 import { requireAuth } from '../../../../lib/auth-guard';
+import { getProjectByIdAndUser } from '../../../../lib/project-helpers';
 
 // PATCH /api/projects/:id - Update project description / isPublic
 export const PATCH = createRoute(requireAuth, async (c) => {
@@ -10,12 +11,7 @@ export const PATCH = createRoute(requireAuth, async (c) => {
   const projectId = c.req.param('id');
   const db = getDb(c.env.DB);
 
-  const project = await db
-    .select()
-    .from(projects)
-    .where(and(eq(projects.id, projectId), eq(projects.userId, session.userId!)))
-    .get();
-
+  const project = await getProjectByIdAndUser(db, projectId, session.userId!);
   if (!project) {
     return c.json({ error: 'Project not found' }, 404);
   }
@@ -41,12 +37,7 @@ export const DELETE = createRoute(requireAuth, async (c) => {
   const projectId = c.req.param('id');
   const db = getDb(c.env.DB);
 
-  const project = await db
-    .select()
-    .from(projects)
-    .where(and(eq(projects.id, projectId), eq(projects.userId, session.userId!)))
-    .get();
-
+  const project = await getProjectByIdAndUser(db, projectId, session.userId!);
   if (!project) {
     return c.json({ error: 'Project not found' }, 404);
   }

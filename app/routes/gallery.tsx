@@ -3,6 +3,7 @@ import { eq, and, desc } from 'drizzle-orm';
 import { getDb } from '../db';
 import { users, projects } from '../db/schema';
 import { fetchOgImage } from '../lib/og';
+import { timeAgo } from '../lib/time';
 import Navbar from '../components/navbar';
 
 /** Generate a screenshot thumbnail URL for sites without og:image */
@@ -17,19 +18,6 @@ const frameworkIcon: Record<string, string> = {
   Astro: '🚀',
   SvelteKit: '🔥',
   Remix: '💿',
-};
-
-const timeAgo = (date: Date | number | string): string => {
-  const d = date instanceof Date ? date : new Date(date);
-  const diff = Date.now() - d.getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return '剛剛';
-  if (mins < 60) return `${mins} 分鐘前`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours} 小時前`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days} 天前`;
-  return `${Math.floor(days / 7)} 週前`;
 };
 
 export default createRoute(async (c) => {

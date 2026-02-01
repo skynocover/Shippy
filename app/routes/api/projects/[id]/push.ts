@@ -1,11 +1,15 @@
 import { createRoute } from 'honox/factory';
-import { eq, and } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { getDb } from '../../../../db';
-import { users, projects } from '../../../../db/schema';
+import { projects } from '../../../../db/schema';
 import { requireAuth } from '../../../../lib/auth-guard';
-import { decrypt } from '../../../../lib/crypto';
 import { shouldIgnore } from '../../../../lib/constants';
 import { detectFramework } from '../../../../lib/detect';
+import {
+  getProjectByIdAndUser,
+  getUserWithTokens,
+  decryptUserToken,
+} from '../../../../lib/project-helpers';
 import * as github from '../../../../services/github';
 
 interface UploadFile {
@@ -19,12 +23,7 @@ export const POST = createRoute(requireAuth, async (c) => {
   const projectId = c.req.param('id');
   const db = getDb(c.env.DB);
 
-  const project = await db
-    .select()
-    .from(projects)
-    .where(and(eq(projects.id, projectId), eq(projects.userId, session.userId!)))
-    .get();
-
+  const project = await getProjectByIdAndUser(db, projectId, session.userId!);
   if (!project) {
     return c.json({ error: 'Project not found' }, 404);
   }
@@ -35,10 +34,10 @@ export const POST = createRoute(requireAuth, async (c) => {
   }
 
   try {
-    const user = await db.select().from(users).where(eq(users.id, session.userId!)).get();
+    const user = await getUserWithTokens(db, session.userId!);
     if (!user) return c.json({ error: 'User not found' }, 404);
 
-    const githubToken = await decrypt(user.githubToken, c.env.ENCRYPTION_KEY);
+    const githubToken = await decryptUserToken(user.githubToken, c.env.ENCRYPTION_KEY);
 
     // Filter ignored files
     const files = body.files.filter((f) => !shouldIgnore(f.path));

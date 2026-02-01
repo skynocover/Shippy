@@ -17,7 +17,7 @@ export const IGNORE_PATTERNS = [
   '.vscode',
 ];
 
-export function shouldIgnore(path: string): boolean {
+export const shouldIgnore = (path: string): boolean => {
   const parts = path.split('/');
   return parts.some((part) => IGNORE_PATTERNS.includes(part));
-}
+};

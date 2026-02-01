@@ -11,7 +11,7 @@ interface SessionData {
   vercelToken?: string;
 }
 
-export async function sessionMiddleware(c: Context, next: Next) {
+export const sessionMiddleware = async (c: Context, next: Next) => {
   const kv = c.env.SESSION;
   let sessionId = getCookie(c, COOKIE_NAME);
   let data: SessionData = {};
@@ -44,4 +44,4 @@ export async function sessionMiddleware(c: Context, next: Next) {
   const session = c.get('session');
   const { id: _id, ...rest } = session;
   await kv.put(sessionId, JSON.stringify(rest), { expirationTtl: SESSION_TTL });
-}
+};
