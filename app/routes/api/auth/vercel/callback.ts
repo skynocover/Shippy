@@ -50,9 +50,5 @@ export default createRoute(async (c) => {
     .where(eq(users.id, session.userId))
     .run();
 
-  // Store decrypted token in session for convenience
-  session.vercelToken = tokenData.access_token;
-  c.set('session', session);
-
   return c.redirect('/dashboard?vercel=connected');
 });

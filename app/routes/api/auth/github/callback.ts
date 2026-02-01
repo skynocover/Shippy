@@ -82,7 +82,6 @@ export default createRoute(async (c) => {
 
   // Set session
   session.userId = userId;
-  session.githubToken = accessToken;
   c.set('session', session);
 
   return c.redirect('/dashboard');

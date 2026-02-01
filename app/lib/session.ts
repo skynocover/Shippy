@@ -7,8 +7,6 @@ const SESSION_TTL = 60 * 60 * 24 * 7; // 7 days in seconds
 
 interface SessionData {
   userId?: string;
-  githubToken?: string;
-  vercelToken?: string;
 }
 
 export const sessionMiddleware = async (c: Context, next: Next) => {

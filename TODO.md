@@ -789,8 +789,8 @@ export const domainConfigs = sqliteTable('domain_configs', {
 - `app/routes/api/auth/vercel/callback.ts:54`：`session.vercelToken = tokenData.access_token`
 
 DB 中 token 有加密儲存（正確），但 session KV 卻存了明文（有風險）。所有 API route 都是從 DB decrypt token，session 中的 token 實際上未被使用。
-- [ ] 移除 session 中的 `githubToken` 和 `vercelToken`，僅保留 `userId`
-- [ ] 清理 `SessionData` interface
+- [x] 移除 session 中的 `githubToken` 和 `vercelToken`，僅保留 `userId`
+- [x] 清理 `SessionData` interface
 
 ### 優先度 5：效能改善
 
