@@ -15,6 +15,20 @@
       "when": 1769792458124,
       "tag": "0001_dusty_sharon_ventura",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1769919424683,
+      "tag": "0002_parallel_the_phantom",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1769922107591,
+      "tag": "0003_right_zemo",
+      "breakpoints": true
     }
   ]
 }

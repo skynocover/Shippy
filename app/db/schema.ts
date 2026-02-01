@@ -33,6 +33,9 @@ export const projects = sqliteTable('projects', {
     .default('created'),
   customDomain: text('custom_domain'),
   domainStatus: text('domain_status', { enum: ['pending', 'active', 'error'] }),
+  description: text('description'),
+  isPublic: integer('is_public', { mode: 'boolean' }).notNull().default(true),
+  ogImage: text('og_image'),
   createdAt: integer('created_at', { mode: 'timestamp' })
     .notNull()
     .$defaultFn(() => new Date()),

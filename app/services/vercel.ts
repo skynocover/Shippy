@@ -96,3 +96,25 @@ export const addDomain = async (token: string, projectId: string, domain: string
   }
   return res.json();
 };
+
+interface DomainConfigResponse {
+  configuredBy: string | null;
+  misconfigured: boolean;
+  recommendedCNAME: { rank: number; value: string }[];
+  recommendedIPv4: { rank: number; value: string }[];
+}
+
+/** Get the recommended DNS records for a domain from Vercel */
+export const getDomainConfig = async (
+  token: string,
+  domain: string,
+): Promise<DomainConfigResponse> => {
+  const res = await fetch(`${API}/v6/domains/${domain}/config`, {
+    headers: headers(token),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Vercel getDomainConfig failed: ${res.status} ${text}`);
+  }
+  return res.json() as Promise<DomainConfigResponse>;
+};

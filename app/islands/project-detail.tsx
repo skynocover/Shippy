@@ -45,6 +45,8 @@ interface ProjectData {
   customDomain: string | null;
   domainStatus: string | null;
   githubRepo: string | null;
+  description: string | null;
+  isPublic: boolean;
   platform: string | null;
   createdAt: string;
 }
@@ -97,6 +99,10 @@ const timeAgo = (dateStr: string): string => {
 const ProjectDetail = ({ project, deployments, hasVercel, hasCloudflare }: Props) => {
   const [activeTab, setActiveTab] = useState<TabKey>('overview');
   const [projectName, setProjectName] = useState(project.name);
+  const [description, setDescription] = useState(project.description || '');
+  const [isPublic, setIsPublic] = useState(project.isPublic);
+  const [saving, setSaving] = useState(false);
+  const [saveMsg, setSaveMsg] = useState('');
   const [deleting, setDeleting] = useState(false);
 
   // Deploy status polling state
@@ -165,6 +171,28 @@ const ProjectDetail = ({ project, deployments, hasVercel, hasCloudflare }: Props
     }, 3000);
     return () => clearInterval(interval);
   }, [project.id, isActive]);
+
+  const handleSaveSettings = async () => {
+    setSaving(true);
+    setSaveMsg('');
+    try {
+      const res = await fetch(`/api/projects/${project.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ description, isPublic }),
+      });
+      if (res.ok) {
+        setSaveMsg('已儲存');
+        setTimeout(() => setSaveMsg(''), 2000);
+      } else {
+        setSaveMsg('儲存失敗');
+      }
+    } catch {
+      setSaveMsg('網路錯誤');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleDelete = async () => {
     if (!confirm('確定要刪除這個專案嗎？此操作無法復原。')) return;
@@ -938,6 +966,51 @@ const ProjectDetail = ({ project, deployments, hasVercel, hasCloudflare }: Props
                   style="background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.1)"
                 />
               </div>
+
+              <div class="p-5 rounded-xl" style="background:rgba(0,0,0,0.2)">
+                <label class="block mb-2 font-medium text-sm">專案描述</label>
+                <p class="text-xs mb-3" style="color:rgba(255,255,255,0.4)">
+                  描述會顯示在 Gallery 頁面，讓其他人了解你的專案
+                </p>
+                <textarea
+                  value={description}
+                  onInput={(e: Event) => setDescription((e.target as HTMLTextAreaElement).value)}
+                  placeholder="簡單介紹你的專案..."
+                  rows={3}
+                  class="w-full px-4 py-3 rounded-lg text-white text-sm focus:outline-none resize-none"
+                  style="background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.1)"
+                />
+              </div>
+
+              <div class="p-5 rounded-xl" style="background:rgba(0,0,0,0.2)">
+                <div class="flex items-center justify-between">
+                  <div>
+                    <label class="block font-medium text-sm mb-1">公開到 Gallery</label>
+                    <p class="text-xs" style="color:rgba(255,255,255,0.4)">
+                      開啟後，專案會顯示在公開的 Gallery 頁面
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setIsPublic(!isPublic)}
+                    class="relative w-12 h-7 rounded-full border-none cursor-pointer transition-colors"
+                    style={`background:${isPublic ? '#6366f1' : 'rgba(255,255,255,0.15)'}`}
+                  >
+                    <span
+                      class="absolute top-0.5 w-6 h-6 rounded-full transition-all"
+                      style={`background:white;left:${isPublic ? '22px' : '2px'}`}
+                    />
+                  </button>
+                </div>
+              </div>
+
+              <button
+                onClick={handleSaveSettings}
+                disabled={saving}
+                class="w-full py-3 rounded-xl text-white font-bold text-sm border-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                style="background:linear-gradient(135deg,#818cf8 0%,#6366f1 100%)"
+              >
+                {saving ? '儲存中...' : saveMsg || '儲存設定'}
+              </button>
 
               <div
                 class="p-5 rounded-xl"

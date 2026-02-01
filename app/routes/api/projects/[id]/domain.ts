@@ -62,16 +62,22 @@ export const POST = createRoute(requireAuth, async (c) => {
       .where(eq(projects.id, projectId))
       .run();
 
-    // 1. Create CNAME record in Cloudflare
+    // 1. Add custom domain in Vercel (so it assigns a dynamic CNAME)
+    await vercel.addDomain(vercelToken, project.vercelProjectId, fullDomain);
+
+    // 2. Get the recommended CNAME from Vercel
+    const domainConfig = await vercel.getDomainConfig(vercelToken, fullDomain);
+    const recommended = domainConfig.recommendedCNAME?.find((r) => r.rank === 1);
+    const cnameTarget = recommended?.value || 'cname.vercel-dns.com';
+
+    // 3. Create CNAME record in Cloudflare pointing to Vercel's recommended value
     await cloudflare.createDnsRecord(cfToken, {
       zoneId: body.zoneId,
       name: fullDomain,
+      content: cnameTarget,
     });
 
-    // 2. Add custom domain in Vercel
-    await vercel.addDomain(vercelToken, project.vercelProjectId, fullDomain);
-
-    // 3. Mark as active
+    // 4. Mark as active
     await db
       .update(projects)
       .set({

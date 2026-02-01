@@ -41,6 +41,8 @@ export default createRoute(requireAuth, async (c) => {
     customDomain: project.customDomain,
     domainStatus: project.domainStatus,
     githubRepo: project.githubRepo,
+    description: project.description,
+    isPublic: project.isPublic,
     platform: 'vercel' as const,
     createdAt:
       project.createdAt instanceof Date

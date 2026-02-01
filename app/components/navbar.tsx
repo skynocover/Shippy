@@ -8,9 +8,33 @@ export default function Navbar({ username, avatarUrl, isLoggedIn }: NavbarProps)
   return (
     <nav class="sticky top-0 z-50 glass-nav px-6 py-4">
       <div class="max-w-6xl mx-auto flex items-center justify-between">
-        <a href={isLoggedIn ? '/dashboard' : '/'} class="flex items-center gap-2.5 no-underline">
-          <span class="text-2xl font-extrabold text-vs-gradient-brand">VibeShip</span>
-        </a>
+        <div class="flex items-center gap-6">
+          <a href={isLoggedIn ? '/dashboard' : '/'} class="flex items-center gap-2.5 no-underline">
+            <span class="text-2xl font-extrabold text-vs-gradient-brand">VibeShip</span>
+          </a>
+          <a
+            href="/gallery"
+            class="flex items-center gap-1.5 text-sm font-bold no-underline rounded-lg px-3.5 py-1.5 transition-all gallery-nav-link"
+          >
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+              <rect x="1" y="1" width="6" height="6" rx="1.5" fill="url(#gal-g1)" />
+              <rect x="9" y="1" width="6" height="6" rx="1.5" fill="url(#gal-g2)" />
+              <rect x="1" y="9" width="6" height="6" rx="1.5" fill="url(#gal-g2)" />
+              <rect x="9" y="9" width="6" height="6" rx="1.5" fill="url(#gal-g1)" />
+              <defs>
+                <linearGradient id="gal-g1" x1="0" y1="0" x2="16" y2="16">
+                  <stop stop-color="#818cf8" />
+                  <stop offset="1" stop-color="#34d399" />
+                </linearGradient>
+                <linearGradient id="gal-g2" x1="0" y1="0" x2="16" y2="16">
+                  <stop stop-color="#34d399" />
+                  <stop offset="1" stop-color="#818cf8" />
+                </linearGradient>
+              </defs>
+            </svg>
+            <span class="text-vs-gradient-brand">Explore</span>
+          </a>
+        </div>
 
         <div class="flex items-center gap-3">
           {isLoggedIn ? (
