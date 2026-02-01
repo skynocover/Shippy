@@ -18,13 +18,5 @@
       "database_id": "LOCAL_DB_ID",
       "migrations_dir": "drizzle"
     }
-  ],
-
-  // KV Namespace for sessions
-  "kv_namespaces": [
-    {
-      "binding": "SESSION",
-      "id": "LOCAL_SESSION_ID"
-    }
   ]
 }

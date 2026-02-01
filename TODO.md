@@ -30,7 +30,6 @@
 | 服務 | 用途 |
 |------|------|
 | D1 | SQLite 資料庫（用戶資料、專案狀態、加密後的 Token） |
-| KV | Session、快取 |
 | R2 | 暫存用戶上傳的程式碼 |
 | Queues | 背景任務（部署流程） |
 | Cron Triggers | 定時任務（監控檢查） |
@@ -404,10 +403,6 @@ binding = "DB"
 database_name = "vibeship-db"
 database_id = "xxx"
 
-[[kv_namespaces]]
-binding = "SESSION"
-id = "xxx"
-
 [[r2_buckets]]
 binding = "FILES"
 bucket_name = "vibeship-uploads"
@@ -662,7 +657,7 @@ export const domainConfigs = sqliteTable('domain_configs', {
 ### Week 1-2：基礎建設
 - [ ] 初始化 HonoX 專案
 - [ ] 設定 D1 + Drizzle
-- [ ] 設定 KV（Session）
+- [x] 設定 Session（Signed Cookie，已移除 KV 依賴）
 - [ ] 實作 GitHub OAuth
 - [ ] Landing page
 
@@ -789,13 +784,10 @@ export const domainConfigs = sqliteTable('domain_configs', {
 
 ### 優先度 4：安全性改善
 
-#### 4-1. Session KV 儲存了明文 Token
-- `app/routes/api/auth/github/callback.ts:85`：`session.githubToken = accessToken`
-- `app/routes/api/auth/vercel/callback.ts:54`：`session.vercelToken = tokenData.access_token`
-
-DB 中 token 有加密儲存（正確），但 session KV 卻存了明文（有風險）。所有 API route 都是從 DB decrypt token，session 中的 token 實際上未被使用。
+#### 4-1. ~~Session KV 儲存了明文 Token~~ 已完成
 - [x] 移除 session 中的 `githubToken` 和 `vercelToken`，僅保留 `userId`
 - [x] 清理 `SessionData` interface
+- [x] 將 KV Session 替換為 Signed Cookie（HMAC-SHA256），消除 KV 依賴
 
 ### 優先度 5：效能改善
 
