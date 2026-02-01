@@ -11,17 +11,12 @@ export default createRoute(requireAuth, async (c) => {
   const db = getDb(c.env.DB);
   const user = await db.select().from(users).where(eq(users.id, session.userId!)).get();
 
-  const hasVercel = !!user?.vercelToken;
-  const hasCloudflare = !!user?.cloudflareToken;
-
   return c.render(
     <div class="min-h-screen">
       <Navbar
         isLoggedIn={true}
         username={user?.username}
         avatarUrl={user?.avatarUrl ?? undefined}
-        hasVercel={hasVercel}
-        hasCloudflare={hasCloudflare}
       />
 
       <main class="max-w-6xl mx-auto px-6 py-10 animate-slide-up">

@@ -20,8 +20,6 @@ export default createRoute(requireAuth, async (c) => {
         isLoggedIn={true}
         username={user?.username}
         avatarUrl={user?.avatarUrl ?? undefined}
-        hasVercel={hasVercel}
-        hasCloudflare={hasCloudflare}
       />
 
       <main class="max-w-3xl mx-auto px-6 py-10">

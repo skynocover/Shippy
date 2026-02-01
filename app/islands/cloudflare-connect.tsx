@@ -5,7 +5,10 @@ interface Props {
 }
 
 const CF_TOKEN_URL =
-  'https://dash.cloudflare.com/profile/api-tokens?name=' + encodeURIComponent('VibeShip DNS');
+  'https://dash.cloudflare.com/profile/api-tokens?' +
+  'permissionGroupKeys=' +
+  encodeURIComponent('[{"key":"zone","type":"read"},{"key":"dns","type":"edit"}]') +
+  '&name=VibeShip+DNS&accountId=*&zoneId=all';
 
 export default function CloudflareConnect({ isConnected }: Props) {
   const [connected, setConnected] = useState(isConnected);

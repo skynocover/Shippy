@@ -729,3 +729,13 @@ export const domainConfigs = sqliteTable('domain_configs', {
 - 連結cloudflare 應該要可以在裡面連結 而不是只能在外面
 - ~~登出功能~~
 - gallery
+
+## 修改
+
+1. ~~project的card內 不需要開啟的按鈕 因為現在按下card就會進入專案頁面~~
+2. ~~需要可以再次部署 同樣用上傳資料夾的方式 並且確認一下怎麼處理git問題~~
+   - Git 處理：push API 使用 `base_tree` 基於現有 commit 建立新 tree，不會有衝突問題
+3. ~~在專案內 網域的tab 應該要可以讓用戶點擊後連結過去~~
+   1. ~~因此不需要上方的cloudflare連結按鈕~~
+   2. ~~在網頁的tab內 說明方式跟步驟~~
+4. ~~上方不需要連結Vercel的顯示提醒~~

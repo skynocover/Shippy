@@ -148,19 +148,6 @@ const ProjectList = () => {
                 </span>
               </div>
               <div class="flex gap-2">
-                {project.status === 'live' && project.deploymentUrl && (
-                  <button
-                    onClick={(e: Event) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      window.open(project.deploymentUrl!, '_blank');
-                    }}
-                    class="px-3 py-1.5 rounded-lg text-sm cursor-pointer border-none text-white transition-colors"
-                    style="background:rgba(255,255,255,0.1)"
-                  >
-                    開啟
-                  </button>
-                )}
                 {project.status === 'failed' && (
                   <button
                     onClick={(e: Event) => {

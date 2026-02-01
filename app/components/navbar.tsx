@@ -1,20 +1,10 @@
-import CloudflareConnect from '../islands/cloudflare-connect';
-
 interface NavbarProps {
   username?: string;
   avatarUrl?: string;
-  hasVercel?: boolean;
-  hasCloudflare?: boolean;
   isLoggedIn?: boolean;
 }
 
-export default function Navbar({
-  username,
-  avatarUrl,
-  hasVercel,
-  hasCloudflare,
-  isLoggedIn,
-}: NavbarProps) {
+export default function Navbar({ username, avatarUrl, isLoggedIn }: NavbarProps) {
   return (
     <nav class="sticky top-0 z-50 glass-nav px-6 py-4">
       <div class="max-w-6xl mx-auto flex items-center justify-between">
@@ -31,23 +21,6 @@ export default function Navbar({
               >
                 <span>+</span> 新增專案
               </a>
-
-              {hasVercel ? (
-                <span class="text-sm text-vs-green flex items-center gap-1.5">
-                  <span class="w-2 h-2 bg-vs-green rounded-full inline-block"></span>
-                  Vercel
-                </span>
-              ) : (
-                <a
-                  href="/api/auth/vercel"
-                  class="px-3 py-1.5 rounded-lg text-sm font-medium no-underline"
-                  style="background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.7)"
-                >
-                  連結 Vercel
-                </a>
-              )}
-
-              <CloudflareConnect isConnected={!!hasCloudflare} />
 
               <div
                 class="flex items-center gap-2.5 px-3 py-2 rounded-xl"

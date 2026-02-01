@@ -1,4 +1,39 @@
-import { useState, useEffect } from 'hono/jsx';
+import { useState, useEffect, useCallback } from 'hono/jsx';
+import { shouldIgnore } from '../lib/constants';
+import type { FileEntry } from '../lib/file-reader';
+
+const readFileAsBase64 = async (file: File): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve((reader.result as string).split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+
+const traverseEntry = async (entry: FileSystemEntry, basePath = ''): Promise<FileEntry[]> => {
+  const files: FileEntry[] = [];
+  const path = basePath ? `${basePath}/${entry.name}` : entry.name;
+  if (shouldIgnore(entry.name)) return files;
+  if (entry.isFile) {
+    const file = await new Promise<File>((resolve, reject) => {
+      (entry as FileSystemFileEntry).file(resolve, reject);
+    });
+    files.push({ path, content: await readFileAsBase64(file) });
+  } else if (entry.isDirectory) {
+    const reader = (entry as FileSystemDirectoryEntry).createReader();
+    const entries = await new Promise<FileSystemEntry[]>((resolve, reject) => {
+      reader.readEntries(resolve, reject);
+    });
+    for (const child of entries) files.push(...(await traverseEntry(child, path)));
+  }
+  return files;
+};
+
+const CF_TOKEN_URL =
+  'https://dash.cloudflare.com/profile/api-tokens?' +
+  'permissionGroupKeys=' +
+  encodeURIComponent('[{"key":"zone","type":"read"},{"key":"dns","type":"edit"}]') +
+  '&name=VibeShip+DNS&accountId=*&zoneId=all';
 
 interface ProjectData {
   id: string;
@@ -31,6 +66,7 @@ interface Zone {
 interface Props {
   project: ProjectData;
   deployments: DeploymentData[];
+  hasVercel: boolean;
   hasCloudflare: boolean;
 }
 
@@ -58,7 +94,7 @@ const timeAgo = (dateStr: string): string => {
   return `${weeks} 週前`;
 };
 
-const ProjectDetail = ({ project, deployments, hasCloudflare }: Props) => {
+const ProjectDetail = ({ project, deployments, hasVercel, hasCloudflare }: Props) => {
   const [activeTab, setActiveTab] = useState<TabKey>('overview');
   const [projectName, setProjectName] = useState(project.name);
   const [deleting, setDeleting] = useState(false);
@@ -80,6 +116,20 @@ const ProjectDetail = ({ project, deployments, hasCloudflare }: Props) => {
   const [domainStep, setDomainStep] = useState<'idle' | 'select' | 'preview' | 'done'>(
     project.customDomain ? 'done' : 'idle',
   );
+
+  // Re-deploy state
+  const [redeployFiles, setRedeployFiles] = useState<FileEntry[]>([]);
+  const [redeployDragging, setRedeployDragging] = useState(false);
+  const [isReadingFiles, setIsReadingFiles] = useState(false);
+  const [isRedeploying, setIsRedeploying] = useState(false);
+  const [redeployError, setRedeployError] = useState('');
+
+  // Cloudflare connect state (for domain tab)
+  const [cfConnected, setCfConnected] = useState(hasCloudflare);
+  const [cfShowForm, setCfShowForm] = useState(false);
+  const [cfToken, setCfToken] = useState('');
+  const [cfLoading, setCfLoading] = useState(false);
+  const [cfError, setCfError] = useState('');
 
   const isLive = liveStatus === 'live';
   const isFailed = liveStatus === 'failed';
@@ -127,6 +177,130 @@ const ProjectDetail = ({ project, deployments, hasCloudflare }: Props) => {
     } else {
       alert('刪除失敗');
       setDeleting(false);
+    }
+  };
+
+  // Re-deploy: process uploaded files
+  const processRedeployFiles = useCallback(async (allFiles: FileEntry[]) => {
+    const roots = new Set(allFiles.map((f) => f.path.split('/')[0]));
+    let processed = allFiles;
+    if (roots.size === 1) {
+      const root = [...roots][0];
+      processed = allFiles
+        .map((f) => ({ ...f, path: f.path.slice(root.length + 1) }))
+        .filter((f) => f.path.length > 0);
+    }
+    setRedeployFiles(processed);
+    setIsReadingFiles(false);
+  }, []);
+
+  const handleRedeployDrop = useCallback(
+    async (e: DragEvent) => {
+      e.preventDefault();
+      setRedeployDragging(false);
+      setIsReadingFiles(true);
+      setRedeployError('');
+      try {
+        const items = e.dataTransfer?.items;
+        if (!items) return;
+        const allFiles: FileEntry[] = [];
+        for (let i = 0; i < items.length; i++) {
+          const entry = items[i].webkitGetAsEntry?.();
+          if (entry) allFiles.push(...(await traverseEntry(entry)));
+        }
+        await processRedeployFiles(allFiles);
+      } catch (err) {
+        setRedeployError(`讀取檔案失敗: ${err}`);
+        setIsReadingFiles(false);
+      }
+    },
+    [processRedeployFiles],
+  );
+
+  const handleRedeployFolderSelect = useCallback(
+    async (e: Event) => {
+      const input = e.target as HTMLInputElement;
+      if (!input.files || input.files.length === 0) return;
+      setIsReadingFiles(true);
+      setRedeployError('');
+      try {
+        const allFiles: FileEntry[] = [];
+        for (let i = 0; i < input.files.length; i++) {
+          const file = input.files[i];
+          const path =
+            (file as unknown as { webkitRelativePath: string }).webkitRelativePath || file.name;
+          if (shouldIgnore(path)) continue;
+          allFiles.push({ path, content: await readFileAsBase64(file) });
+        }
+        await processRedeployFiles(allFiles);
+      } catch (err) {
+        setRedeployError(`讀取檔案失敗: ${err}`);
+        setIsReadingFiles(false);
+      }
+      input.value = '';
+    },
+    [processRedeployFiles],
+  );
+
+  const handleRedeploy = useCallback(async () => {
+    if (redeployFiles.length === 0) return;
+    if (!hasVercel) {
+      setRedeployError('請先連結 Vercel（前往新增專案頁面連結）');
+      return;
+    }
+    setIsRedeploying(true);
+    setRedeployError('');
+    try {
+      const pushRes = await fetch(`/api/projects/${project.id}/push`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ files: redeployFiles }),
+      });
+      if (!pushRes.ok) {
+        const err = (await pushRes.json()) as { error: string };
+        throw new Error(err.error || '推送到 GitHub 失敗');
+      }
+      const deployRes = await fetch(`/api/projects/${project.id}/deploy`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      if (!deployRes.ok) {
+        const err = (await deployRes.json()) as { error: string };
+        throw new Error(err.error || '部署失敗');
+      }
+      setLiveStatus('deploying');
+      setRedeployFiles([]);
+      setIsRedeploying(false);
+    } catch (err) {
+      setRedeployError(err instanceof Error ? err.message : String(err));
+      setIsRedeploying(false);
+    }
+  }, [redeployFiles, project.id, hasVercel]);
+
+  // Cloudflare connect handler
+  const handleCfConnect = async () => {
+    if (!cfToken.trim()) return;
+    setCfLoading(true);
+    setCfError('');
+    try {
+      const res = await fetch('/api/auth/cloudflare/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: cfToken.trim() }),
+      });
+      const data = (await res.json()) as { ok?: boolean; error?: string };
+      if (!res.ok || !data.ok) {
+        setCfError(data.error || '驗證 Token 失敗');
+        return;
+      }
+      setCfConnected(true);
+      setCfShowForm(false);
+      setCfToken('');
+    } catch {
+      setCfError('網路錯誤，請重試。');
+    } finally {
+      setCfLoading(false);
     }
   };
 
@@ -373,6 +547,67 @@ const ProjectDetail = ({ project, deployments, hasCloudflare }: Props) => {
         {/* ===== Deploys ===== */}
         {activeTab === 'deploys' && (
           <div>
+            {/* Re-deploy section */}
+            <h3 class="font-semibold mb-4">重新部署</h3>
+            <div class="mb-8">
+              <input
+                type="file"
+                id="redeploy-folder-input"
+                // @ts-ignore webkitdirectory is non-standard
+                webkitdirectory=""
+                directory=""
+                multiple
+                onChange={handleRedeployFolderSelect}
+                style="display:none"
+              />
+              <div
+                onDragOver={(e: DragEvent) => {
+                  e.preventDefault();
+                  setRedeployDragging(true);
+                }}
+                onDragLeave={() => setRedeployDragging(false)}
+                onDrop={handleRedeployDrop}
+                onClick={() => document.getElementById('redeploy-folder-input')?.click()}
+                class="rounded-xl p-8 text-center cursor-pointer transition-all mb-4"
+                style={`border:2px dashed ${redeployDragging ? '#818cf8' : 'rgba(255,255,255,0.15)'};background:${redeployDragging ? 'rgba(129,140,248,0.05)' : 'rgba(0,0,0,0.2)'}`}
+              >
+                <div class="text-3xl mb-2">
+                  {redeployFiles.length > 0 ? '📦' : isReadingFiles ? '⏳' : '📁'}
+                </div>
+                <p class="text-sm font-semibold mb-1">
+                  {redeployFiles.length > 0
+                    ? `已讀取 ${redeployFiles.length} 個檔案`
+                    : isReadingFiles
+                      ? '正在讀取檔案...'
+                      : '拖放資料夾到這裡，或點擊選擇'}
+                </p>
+                <p class="text-xs" style="color:rgba(255,255,255,0.4)">
+                  上傳新版本的程式碼，將會推送到 GitHub 並重新部署
+                </p>
+              </div>
+
+              {redeployError && (
+                <div
+                  class="mb-4 px-4 py-2 rounded-xl text-sm"
+                  style="background:rgba(239,68,68,0.1);color:#ef4444"
+                >
+                  {redeployError}
+                </div>
+              )}
+
+              {redeployFiles.length > 0 && (
+                <button
+                  onClick={handleRedeploy}
+                  disabled={isRedeploying}
+                  class="w-full py-3 rounded-xl text-white font-bold text-sm border-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  style="background:linear-gradient(135deg,#818cf8 0%,#6366f1 100%)"
+                >
+                  {isRedeploying ? '部署中...' : '推送並重新部署'}
+                </button>
+              )}
+            </div>
+
+            {/* Deploy history */}
             <h3 class="font-semibold mb-5">部署歷史</h3>
             {deployments.length === 0 ? (
               <div class="text-center py-10" style="color:rgba(255,255,255,0.4)">
@@ -434,11 +669,91 @@ const ProjectDetail = ({ project, deployments, hasCloudflare }: Props) => {
           <div>
             <h3 class="font-semibold mb-5">網域設定</h3>
 
-            {!hasCloudflare ? (
-              <div class="p-5 rounded-xl" style="background:rgba(0,0,0,0.2)">
-                <p class="text-sm" style="color:rgba(255,255,255,0.5)">
-                  請先在導航列連結 Cloudflare 以設定自訂網域。
-                </p>
+            {!cfConnected ? (
+              <div class="p-6 rounded-xl" style="background:rgba(0,0,0,0.2)">
+                <div class="text-center mb-6">
+                  <div class="text-4xl mb-3">🌐</div>
+                  <p class="font-semibold mb-2">連結 Cloudflare 以設定自訂網域</p>
+                  <p class="text-sm" style="color:rgba(255,255,255,0.5)">
+                    你需要一個 Cloudflare API Token 來管理 DNS 記錄
+                  </p>
+                </div>
+
+                <div
+                  class="mb-5 p-4 rounded-xl text-sm space-y-2"
+                  style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06)"
+                >
+                  <p class="font-medium" style="color:rgba(255,255,255,0.8)">
+                    建立步驟：
+                  </p>
+                  <ol class="list-decimal pl-5 space-y-1" style="color:rgba(255,255,255,0.5)">
+                    <li>前往 Cloudflare Dashboard → My Profile → API Tokens</li>
+                    <li>
+                      點擊「Create Token」，使用{' '}
+                      <span class="font-mono" style="color:#f38020">
+                        Edit zone DNS
+                      </span>{' '}
+                      範本
+                    </li>
+                    <li>Zone Resources 選擇「Include → All zones」</li>
+                    <li>建立後複製 Token，貼到下方</li>
+                  </ol>
+                </div>
+
+                {cfError && (
+                  <div
+                    class="mb-4 px-4 py-2 rounded-xl text-sm"
+                    style="background:rgba(239,68,68,0.1);color:#ef4444"
+                  >
+                    {cfError}
+                  </div>
+                )}
+
+                {!cfShowForm ? (
+                  <div class="flex justify-center">
+                    <button
+                      onClick={() => {
+                        window.open(CF_TOKEN_URL, '_blank', 'noopener');
+                        setCfShowForm(true);
+                      }}
+                      class="px-6 py-3 bg-vs-gradient-cf rounded-xl text-white font-semibold border-none cursor-pointer"
+                    >
+                      前往 Cloudflare 建立 Token
+                    </button>
+                  </div>
+                ) : (
+                  <div class="flex items-center gap-2">
+                    <input
+                      type="password"
+                      value={cfToken}
+                      onInput={(e) => setCfToken((e.target as HTMLInputElement).value)}
+                      placeholder="貼上 Cloudflare API Token"
+                      class="flex-1 px-3 py-2.5 rounded-lg text-sm text-white focus:outline-none"
+                      style="background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.1)"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleCfConnect();
+                      }}
+                      disabled={cfLoading}
+                    />
+                    <button
+                      onClick={handleCfConnect}
+                      disabled={cfLoading || !cfToken.trim()}
+                      class="px-5 py-2.5 bg-vs-gradient-cf rounded-lg text-white text-sm font-semibold border-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {cfLoading ? '驗證中...' : '連結'}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setCfShowForm(false);
+                        setCfError('');
+                      }}
+                      class="px-3 py-2.5 text-sm border-none cursor-pointer"
+                      style="background:none;color:rgba(255,255,255,0.4)"
+                    >
+                      取消
+                    </button>
+                  </div>
+                )}
               </div>
             ) : (
               <div>
@@ -543,18 +858,21 @@ const ProjectDetail = ({ project, deployments, hasCloudflare }: Props) => {
                 )}
 
                 {domainStep === 'preview' && selectedZone && (
-                  <div class="space-y-4">
+                  <div class="space-y-5">
                     <div>
-                      <label class="text-sm block mb-2" style="color:rgba(255,255,255,0.5)">
-                        子網域（留空使用根網域）
+                      <label class="text-sm block mb-2" style="color:rgba(255,255,255,0.7)">
+                        輸入你想要的網址前綴
                       </label>
+                      <p class="text-xs mb-3" style="color:rgba(255,255,255,0.4)">
+                        留空表示直接使用 {selectedZone.name} 作為網址
+                      </p>
                       <div class="flex items-center gap-2">
                         <input
                           type="text"
                           value={subdomain}
                           onInput={(e) => setSubdomain((e.target as HTMLInputElement).value)}
                           placeholder="例如 app"
-                          class="px-3 py-2 rounded-lg text-sm text-white focus:outline-none w-40"
+                          class="px-3 py-2.5 rounded-lg text-sm text-white focus:outline-none w-40"
                           style="background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.1)"
                         />
                         <span class="text-sm" style="color:rgba(255,255,255,0.4)">
@@ -564,18 +882,20 @@ const ProjectDetail = ({ project, deployments, hasCloudflare }: Props) => {
                     </div>
 
                     <div
-                      class="px-4 py-3 rounded-xl"
-                      style="background:rgba(0,0,0,0.2);border:1px solid rgba(255,255,255,0.06)"
+                      class="px-4 py-4 rounded-xl"
+                      style="background:rgba(129,140,248,0.08);border:1px solid rgba(129,140,248,0.2)"
                     >
-                      <div class="text-xs mb-1" style="color:rgba(255,255,255,0.4)">
-                        DNS 記錄預覽
+                      <div class="text-xs mb-1.5" style="color:rgba(255,255,255,0.5)">
+                        設定完成後，你的網站網址將會是
                       </div>
-                      <div class="font-mono text-sm">
-                        <span style="color:#f38020">{previewDomain}</span>{' '}
-                        <span style="color:rgba(255,255,255,0.3)">CNAME</span>{' '}
-                        <span style="color:#34d399">cname.vercel-dns.com</span>
+                      <div class="font-mono text-base font-semibold" style="color:#818cf8">
+                        https://{previewDomain}
                       </div>
                     </div>
+
+                    <p class="text-xs" style="color:rgba(255,255,255,0.35)">
+                      系統會自動設定 DNS 和 SSL 憑證，完成後即可透過此網址訪問你的網站。
+                    </p>
 
                     <div class="flex items-center gap-3">
                       <button
