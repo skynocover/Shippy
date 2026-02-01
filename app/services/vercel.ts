@@ -97,6 +97,29 @@ export const addDomain = async (token: string, projectId: string, domain: string
   return res.json();
 };
 
+export const setEnvVars = async (
+  token: string,
+  projectId: string,
+  envVars: Array<{ key: string; value: string }>,
+) => {
+  for (const { key, value } of envVars) {
+    const res = await fetch(`${API}/v10/projects/${projectId}/env`, {
+      method: 'POST',
+      headers: headers(token),
+      body: JSON.stringify({
+        key,
+        value,
+        type: 'encrypted',
+        target: ['production', 'preview', 'development'],
+      }),
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Vercel setEnvVar failed for ${key}: ${res.status} ${text}`);
+    }
+  }
+};
+
 interface DomainConfigResponse {
   configuredBy: string | null;
   misconfigured: boolean;

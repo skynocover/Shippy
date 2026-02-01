@@ -26,7 +26,9 @@ export const POST = createRoute(requireAuth, async (c) => {
     return c.json({ error: 'Push to GitHub first' }, 400);
   }
 
-  const body = await c.req.json<{ vercelProjectName?: string }>().catch(() => ({}));
+  const body = await c.req
+    .json<{ vercelProjectName?: string; envVars?: Array<{ key: string; value: string }> }>()
+    .catch(() => ({}));
 
   try {
     const user = await getUserWithTokens(db, session.userId!);
@@ -54,6 +56,11 @@ export const POST = createRoute(requireAuth, async (c) => {
         })
         .where(eq(projects.id, projectId))
         .run();
+    }
+
+    // Set environment variables if provided
+    if (body.envVars && body.envVars.length > 0) {
+      await vercel.setEnvVars(vercelToken, vercelProjectId!, body.envVars);
     }
 
     // Trigger deployment — derive name from stored domain or fallback

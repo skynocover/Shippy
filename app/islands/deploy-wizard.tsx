@@ -1,7 +1,9 @@
 import { useState, useCallback, useEffect } from 'hono/jsx';
 import { shouldIgnore } from '../lib/constants';
-import { readFileAsBase64, traverseEntry } from '../lib/file-reader';
-import type { FileEntry } from '../lib/file-reader';
+import { readFileAsBase64, readFileAsText, traverseEntry } from '../lib/file-reader';
+import type { FileEntry, EnvFileEntry } from '../lib/file-reader';
+import { isEnvFile, parseEnvFile } from '../lib/env-parser';
+import type { EnvVar } from '../lib/env-parser';
 
 interface Props {
   hasVercel: boolean;
@@ -50,6 +52,10 @@ export default function DeployWizard({ hasVercel, hasCloudflare }: Props) {
 
   // Error
   const [error, setError] = useState('');
+
+  // Env vars state
+  const [envVars, setEnvVars] = useState<EnvVar[]>([]);
+  const [showEnvModal, setShowEnvModal] = useState(false);
 
   // Detect framework from file list
   const detectFramework = (fileList: FileEntry[]) => {
@@ -104,14 +110,26 @@ export default function DeployWizard({ hasVercel, hasCloudflare }: Props) {
         if (!items) return;
 
         const allFiles: FileEntry[] = [];
+        const envCollector: EnvFileEntry[] = [];
         for (let i = 0; i < items.length; i++) {
           const entry = items[i].webkitGetAsEntry?.();
           if (entry) {
-            const entryFiles = await traverseEntry(entry);
+            const entryFiles = await traverseEntry(entry, '', envCollector);
             allFiles.push(...entryFiles);
           }
           setUploadProgress(Math.min(90, ((i + 1) / items.length) * 90));
         }
+
+        // Parse collected env files
+        const parsedVars: EnvVar[] = [];
+        for (const envFile of envCollector) {
+          parsedVars.push(...parseEnvFile(envFile.content));
+        }
+        // Deduplicate by key (last wins)
+        const seen = new Map<string, EnvVar>();
+        for (const v of parsedVars) seen.set(v.key, v);
+        setEnvVars([...seen.values()]);
+
         await processFiles(allFiles);
       } catch (err) {
         setError(`讀取檔案失敗: ${err}`);
@@ -132,15 +150,33 @@ export default function DeployWizard({ hasVercel, hasCloudflare }: Props) {
 
       try {
         const allFiles: FileEntry[] = [];
+        const envCollector: EnvFileEntry[] = [];
         for (let i = 0; i < input.files.length; i++) {
           const file = input.files[i];
           const path =
             (file as unknown as { webkitRelativePath: string }).webkitRelativePath || file.name;
+          const basename = path.split('/').pop() || path;
+          // Collect env files before shouldIgnore skips them
+          if (isEnvFile(basename)) {
+            const content = await readFileAsText(file);
+            envCollector.push({ path, content });
+            continue;
+          }
           if (shouldIgnore(path)) continue;
           const content = await readFileAsBase64(file);
           allFiles.push({ path, content });
           setUploadProgress(Math.min(90, ((i + 1) / input.files.length) * 90));
         }
+
+        // Parse collected env files
+        const parsedVars: EnvVar[] = [];
+        for (const envFile of envCollector) {
+          parsedVars.push(...parseEnvFile(envFile.content));
+        }
+        const seen = new Map<string, EnvVar>();
+        for (const v of parsedVars) seen.set(v.key, v);
+        setEnvVars([...seen.values()]);
+
         await processFiles(allFiles);
       } catch (err) {
         setError(`讀取檔案失敗: ${err}`);
@@ -220,7 +256,10 @@ export default function DeployWizard({ hasVercel, hasCloudflare }: Props) {
       const deployRes = await fetch(`/api/projects/${projectId}/deploy`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ vercelProjectName: vercelProjectName.trim() || undefined }),
+        body: JSON.stringify({
+          vercelProjectName: vercelProjectName.trim() || undefined,
+          envVars: envVars.length > 0 ? envVars : undefined,
+        }),
       });
       if (!deployRes.ok) {
         const err = (await deployRes.json()) as { error: string };
@@ -277,7 +316,7 @@ export default function DeployWizard({ hasVercel, hasCloudflare }: Props) {
       setError(err instanceof Error ? err.message : String(err));
       setIsDeploying(false);
     }
-  }, [projectId, hasVercel, vercelProjectName, deploymentUrl]);
+  }, [projectId, hasVercel, vercelProjectName, deploymentUrl, envVars]);
 
   return (
     <div class="animate-slide-up">
@@ -384,6 +423,18 @@ export default function DeployWizard({ hasVercel, hasCloudflare }: Props) {
             >
               <span class="text-vs-green font-medium text-sm">
                 ⚡ 偵測到框架：{detectedFramework}
+              </span>
+            </div>
+          )}
+
+          {/* Env vars detection */}
+          {envVars.length > 0 && (
+            <div
+              class="flex items-center gap-2 mb-6 px-4 py-2.5 rounded-xl"
+              style="background:rgba(129,140,248,0.1);border:1px solid rgba(129,140,248,0.2)"
+            >
+              <span class="text-sm font-medium" style="color:#818cf8">
+                🔑 偵測到 {envVars.length} 個環境變數，部署時可設定到 Vercel
               </span>
             </div>
           )}
@@ -505,7 +556,13 @@ export default function DeployWizard({ hasVercel, hasCloudflare }: Props) {
             <div class="space-y-4">
               {/* Vercel option */}
               <button
-                onClick={handleDeployToVercel}
+                onClick={() => {
+                  if (envVars.length > 0) {
+                    setShowEnvModal(true);
+                  } else {
+                    handleDeployToVercel();
+                  }
+                }}
                 disabled={!hasVercel}
                 class="w-full p-5 rounded-2xl text-left cursor-pointer flex items-center justify-between disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                 style="background:rgba(0,0,0,0.2);border:1px solid rgba(255,255,255,0.1)"
@@ -627,6 +684,99 @@ export default function DeployWizard({ hasVercel, hasCloudflare }: Props) {
             >
               前往 Dashboard
             </a>
+          </div>
+        </div>
+      )}
+
+      {/* ==================== Env Vars Modal ==================== */}
+      {showEnvModal && (
+        <div
+          class="fixed inset-0 z-50 flex items-center justify-center"
+          style="background:rgba(0,0,0,0.7);backdrop-filter:blur(4px)"
+          onClick={() => setShowEnvModal(false)}
+        >
+          <div
+            class="card-vs p-8 max-w-lg w-full mx-4 max-h-[80vh] overflow-y-auto"
+            style="background:rgba(26,26,46,0.95);cursor:default"
+            onClick={(e: Event) => e.stopPropagation()}
+          >
+            <h3 class="text-xl font-bold mb-2">🔑 環境變數設定</h3>
+            <p class="text-sm mb-6" style="color:rgba(255,255,255,0.5)">
+              我們從你的 .env 檔案中偵測到以下環境變數。這些變數會在部署時設定到
+              Vercel，讓你的應用程式正常運作。
+            </p>
+
+            <div class="space-y-3 mb-6">
+              {envVars.map((v, i) => (
+                <div key={i} class="flex gap-2">
+                  <input
+                    type="text"
+                    value={v.key}
+                    onInput={(e: Event) => {
+                      const updated = [...envVars];
+                      updated[i] = { ...updated[i], key: (e.target as HTMLInputElement).value };
+                      setEnvVars(updated);
+                    }}
+                    class="flex-1 px-3 py-2 rounded-lg text-white font-mono text-sm focus:outline-none"
+                    style="background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.1)"
+                    placeholder="KEY"
+                  />
+                  <input
+                    type="text"
+                    value={v.value}
+                    onInput={(e: Event) => {
+                      const updated = [...envVars];
+                      updated[i] = { ...updated[i], value: (e.target as HTMLInputElement).value };
+                      setEnvVars(updated);
+                    }}
+                    class="flex-[2] px-3 py-2 rounded-lg text-white font-mono text-sm focus:outline-none"
+                    style="background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.1)"
+                    placeholder="value"
+                  />
+                  <button
+                    onClick={() => setEnvVars(envVars.filter((_, j) => j !== i))}
+                    class="px-2 py-2 rounded-lg text-sm border-none cursor-pointer"
+                    style="background:rgba(239,68,68,0.15);color:#ef4444"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            <button
+              onClick={() => setEnvVars([...envVars, { key: '', value: '' }])}
+              class="w-full py-2 rounded-lg text-sm font-medium border-none cursor-pointer mb-6"
+              style="background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.6);border:1px dashed rgba(255,255,255,0.15)"
+            >
+              + 新增變數
+            </button>
+
+            <div class="flex gap-3">
+              <button
+                onClick={() => {
+                  setEnvVars([]);
+                  setShowEnvModal(false);
+                  handleDeployToVercel();
+                }}
+                class="px-5 py-3 rounded-xl text-sm font-medium border-none cursor-pointer"
+                style="background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.6)"
+              >
+                略過
+              </button>
+              <button
+                onClick={() => {
+                  const filtered = envVars.filter((v) => v.key.trim());
+                  setEnvVars(filtered);
+                  setShowEnvModal(false);
+                  handleDeployToVercel();
+                }}
+                class="flex-1 py-3 rounded-xl text-white font-bold text-sm border-none cursor-pointer"
+                style="background:linear-gradient(135deg,#818cf8 0%,#6366f1 100%)"
+              >
+                確認並部署
+              </button>
+            </div>
           </div>
         </div>
       )}

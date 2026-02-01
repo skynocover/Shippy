@@ -173,9 +173,14 @@ await vercel.projects.addDomain({
 ```
 
 #### 5. 環境變數管理
-- [ ] 統一管理面板
-- [ ] 從 `.env.example` 自動偵測需要的變數
-- [ ] 同步到 Vercel 環境變數
+- [x] 從 `.env` 檔案自動偵測環境變數（上傳時掃描）
+- [x] 部署前讓用戶檢視/編輯環境變數
+- [x] 同步到 Vercel 環境變數（部署時自動設定）
+- [ ] 統一管理面板（project-detail 內的 env var 編輯）
+
+#### 5.5 QR Code
+- [x] 專案詳情頁顯示 QR Code 按鈕
+- [x] QR Code 彈窗（含下載功能）
 
 #### 6. 資料庫自動建立
 - [ ] 掃描 `package.json` 偵測使用的 ORM/DB

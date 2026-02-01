@@ -98,6 +98,10 @@ const ProjectDetail = ({ project, deployments, hasVercel, hasCloudflare }: Props
   const [cfLoading, setCfLoading] = useState(false);
   const [cfError, setCfError] = useState('');
 
+  // QR code state
+  const [showQrModal, setShowQrModal] = useState(false);
+  const [qrDataUrl, setQrDataUrl] = useState('');
+
   const isLive = liveStatus === 'live';
   const isFailed = liveStatus === 'failed';
   const isActive = ['created', 'uploading', 'deploying'].includes(liveStatus);
@@ -354,6 +358,19 @@ const ProjectDetail = ({ project, deployments, hasVercel, hasCloudflare }: Props
       : selectedZone.name
     : '';
 
+  const handleShowQr = async () => {
+    const url = domain ? `https://${domain}` : liveUrl;
+    if (!url) return;
+    try {
+      const { generateQrDataUrl } = await import('../lib/qr');
+      const dataUrl = await generateQrDataUrl(url);
+      setQrDataUrl(dataUrl);
+      setShowQrModal(true);
+    } catch {
+      /* ignore */
+    }
+  };
+
   return (
     <div>
       {/* Back + Header */}
@@ -379,15 +396,25 @@ const ProjectDetail = ({ project, deployments, hasVercel, hasCloudflare }: Props
               </div>
             </div>
             {isLive && liveUrl && (
-              <a
-                href={domain ? `https://${domain}` : liveUrl}
-                target="_blank"
-                rel="noopener"
-                class="font-mono text-sm no-underline"
-                style="color:#818cf8"
-              >
-                {domain || liveUrl} ↗
-              </a>
+              <div class="flex items-center gap-2">
+                <a
+                  href={domain ? `https://${domain}` : liveUrl}
+                  target="_blank"
+                  rel="noopener"
+                  class="font-mono text-sm no-underline"
+                  style="color:#818cf8"
+                >
+                  {domain || liveUrl} ↗
+                </a>
+                <button
+                  onClick={handleShowQr}
+                  class="px-2 py-1 rounded-lg text-xs border-none cursor-pointer"
+                  style="background:rgba(129,140,248,0.15);color:#818cf8"
+                  title="QR Code"
+                >
+                  QR
+                </button>
+              </div>
             )}
           </div>
         </div>
@@ -997,6 +1024,46 @@ const ProjectDetail = ({ project, deployments, hasVercel, hasCloudflare }: Props
           </div>
         )}
       </div>
+
+      {/* ==================== QR Code Modal ==================== */}
+      {showQrModal && qrDataUrl && (
+        <div
+          class="fixed inset-0 z-50 flex items-center justify-center"
+          style="background:rgba(0,0,0,0.7);backdrop-filter:blur(4px)"
+          onClick={() => setShowQrModal(false)}
+        >
+          <div
+            class="card-vs p-8 text-center max-w-sm w-full mx-4"
+            style="background:rgba(26,26,46,0.95);cursor:default"
+            onClick={(e: Event) => e.stopPropagation()}
+          >
+            <h3 class="text-lg font-bold mb-4">QR Code</h3>
+            <div class="inline-block p-4 rounded-xl mb-4" style="background:#ffffff">
+              <img src={qrDataUrl} alt="QR Code" style="width:200px;height:200px" />
+            </div>
+            <p class="font-mono text-xs mb-6" style="color:rgba(255,255,255,0.5)">
+              {domain ? `https://${domain}` : liveUrl}
+            </p>
+            <div class="flex gap-3">
+              <a
+                href={qrDataUrl}
+                download={`${project.name}-qrcode.png`}
+                class="flex-1 py-2.5 rounded-xl text-white font-semibold text-sm no-underline text-center"
+                style="background:linear-gradient(135deg,#818cf8 0%,#6366f1 100%)"
+              >
+                下載 QR Code
+              </a>
+              <button
+                onClick={() => setShowQrModal(false)}
+                class="px-5 py-2.5 rounded-xl text-sm font-medium border-none cursor-pointer"
+                style="background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.6)"
+              >
+                關閉
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
