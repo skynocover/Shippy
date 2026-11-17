@@ -1,6 +1,6 @@
-# VibeShip - 專案規劃文件
+# SheepIt - 專案規劃文件
 
-> 幫助 Vibe coding 小白一鍵上線的服務平台
+> 幫助 Vibe coding 小白一鍵上線的服務平台 (sheepit.cc)
 
 ## 專案概念
 

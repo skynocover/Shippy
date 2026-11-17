@@ -9,7 +9,7 @@ const CF_TOKEN_URL =
   'https://dash.cloudflare.com/profile/api-tokens?' +
   'permissionGroupKeys=' +
   encodeURIComponent('[{"key":"zone","type":"read"},{"key":"dns","type":"edit"}]') +
-  '&name=VibeShip+DNS&accountId=*&zoneId=all';
+  '&name=SheepIt+DNS&accountId=*&zoneId=all';
 
 interface ProjectData {
   id: string;

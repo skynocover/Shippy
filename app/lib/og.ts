@@ -9,7 +9,7 @@ export const fetchOgImage = async (pageUrl: string): Promise<string | null> => {
 
     const res = await fetch(pageUrl, {
       signal: controller.signal,
-      headers: { 'User-Agent': 'VibeShip-Bot/1.0' },
+      headers: { 'User-Agent': 'SheepIt-Bot/1.0' },
       redirect: 'follow',
     });
     clearTimeout(timeout);

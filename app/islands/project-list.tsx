@@ -65,7 +65,7 @@ const ProjectList = () => {
         const displayUrl =
           project.customDomain ||
           project.deploymentUrl?.replace('https://', '') ||
-          `${project.subdomain}.vibeship.dev`;
+          `${project.subdomain}.sheepit.cc`;
 
         return (
           <a

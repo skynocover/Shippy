@@ -33,6 +33,6 @@ export default createRoute(async (c) => {
         <DeployWizard isLoggedIn={isLoggedIn} hasVercel={hasVercel} hasCloudflare={hasCloudflare} />
       </main>
     </div>,
-    { title: '新增專案 - VibeShip' },
+    { title: '新增專案 - SheepIt' },
   );
 });

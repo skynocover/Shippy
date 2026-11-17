@@ -4,7 +4,7 @@ const headers = (token: string) => ({
   Authorization: `Bearer ${token}`,
   Accept: 'application/vnd.github+json',
   'X-GitHub-Api-Version': '2022-11-28',
-  'User-Agent': 'VibeShip',
+  'User-Agent': 'SheepIt',
 });
 
 export const getUser = async (token: string) => {

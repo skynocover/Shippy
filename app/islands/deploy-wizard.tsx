@@ -901,7 +901,7 @@ export default function DeployWizard({ isLoggedIn, hasVercel, hasCloudflare }: P
 
             <div class="flex flex-col gap-3">
               <a
-                href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(`我剛用 VibeShip 三分鐘就把網站部署上線了！🚀 ${deploymentUrl || ''}`)}`}
+                href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(`我剛用 SheepIt 三分鐘就把網站部署上線了！🚀 ${deploymentUrl || ''}`)}`}
                 target="_blank"
                 rel="noopener"
                 class="w-full py-3 rounded-xl text-white font-semibold text-sm no-underline text-center"

@@ -10,7 +10,8 @@ export default function Navbar({ username, avatarUrl, isLoggedIn }: NavbarProps)
       <div class="max-w-6xl mx-auto flex items-center justify-between">
         <div class="flex items-center gap-6">
           <a href={isLoggedIn ? '/dashboard' : '/'} class="flex items-center gap-2.5 no-underline">
-            <span class="text-2xl font-extrabold text-vs-gradient-brand">VibeShip</span>
+            <img src="/sheep-logo.png" alt="SheepIt" class="w-8 h-8" />
+            <span class="text-2xl font-extrabold text-vs-gradient-brand">SheepIt</span>
           </a>
           <a
             href="/gallery"

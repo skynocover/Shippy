@@ -61,7 +61,7 @@ export const POST = createRoute(requireAuth, async (c) => {
     let isNewRepo = false;
 
     if (!repoFullName) {
-      const repoName = body.repoName?.trim() || `vibeship-${project.subdomain}`;
+      const repoName = body.repoName?.trim() || `sheepit-${project.subdomain}`;
       const ghUser = await github.getUser(githubToken);
 
       try {
@@ -95,7 +95,7 @@ export const POST = createRoute(requireAuth, async (c) => {
     // Push files
     const [owner, repo] = repoFullName.split('/');
     console.log(`Pushing ${files.length} files to ${owner}/${repo}`);
-    await github.pushFiles(githubToken, owner, repo, files, 'Deploy via VibeShip');
+    await github.pushFiles(githubToken, owner, repo, files, 'Deploy via SheepIt');
     console.log(`Push complete for ${owner}/${repo}`);
 
     return c.json({

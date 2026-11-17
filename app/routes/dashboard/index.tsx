@@ -38,6 +38,6 @@ export default createRoute(requireAuth, async (c) => {
         <ProjectList />
       </main>
     </div>,
-    { title: 'Dashboard - VibeShip' },
+    { title: 'Dashboard - SheepIt' },
   );
 });

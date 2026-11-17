@@ -41,7 +41,7 @@ export const POST = createRoute(requireAuth, async (c) => {
     // Create Vercel project if needed
     let vercelProjectId = project.vercelProjectId;
     if (!vercelProjectId) {
-      const vercelName = body.vercelProjectName?.trim() || `vibeship-${project.subdomain}`;
+      const vercelName = body.vercelProjectName?.trim() || `sheepit-${project.subdomain}`;
       const vp = await vercel.createProject(vercelToken, {
         name: vercelName,
         gitRepository: { type: 'github', repo: project.githubRepo },
@@ -73,7 +73,7 @@ export const POST = createRoute(requireAuth, async (c) => {
     // Trigger deployment — derive name from stored domain or fallback
     const vercelDeployName = project.deploymentUrl
       ? project.deploymentUrl.replace('https://', '').replace('.vercel.app', '')
-      : `vibeship-${project.subdomain}`;
+      : `sheepit-${project.subdomain}`;
     const deployment = await vercel.createDeployment(vercelToken, {
       name: vercelDeployName,
       gitSource: { type: 'github', org: owner, repo, ref: 'main' },

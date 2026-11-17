@@ -83,7 +83,7 @@ export default createRoute(async (c) => {
               const displayUrl =
                 project.customDomain ||
                 project.deploymentUrl?.replace('https://', '') ||
-                `${project.subdomain}.vibeship.dev`;
+                `${project.subdomain}.sheepit.cc`;
               const icon = project.framework ? frameworkIcon[project.framework] || '📦' : '📦';
 
               return (
@@ -160,6 +160,6 @@ export default createRoute(async (c) => {
         )}
       </main>
     </div>,
-    { title: 'Gallery - VibeShip' },
+    { title: 'Gallery - SheepIt' },
   );
 });

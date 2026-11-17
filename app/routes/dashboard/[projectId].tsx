@@ -75,6 +75,6 @@ export default createRoute(requireAuth, async (c) => {
         />
       </main>
     </div>,
-    { title: `${project.name} - VibeShip` },
+    { title: `${project.name} - SheepIt` },
   );
 });
